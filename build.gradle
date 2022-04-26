@@ -1,0 +1,86 @@
+buildscript {
+    repositories {
+		mavenCentral()
+//        maven {
+//            url = "http://sbtnexus.delta.sbrf.ru:8081/nexus/content/groups/public"
+//            allowInsecureProtocol = true
+//        }
+//        maven {
+//            url = "http://sbtnexus.delta.sbrf.ru:8081/nexus/service/local/repositories/jcenter"
+//            allowInsecureProtocol = true
+//        }
+//        maven {
+//            url = "http://sbtnexus.delta.sbrf.ru:8081/nexus/service/local/repositories/backbase_repo/content"
+//            allowInsecureProtocol = true
+//        }
+    }
+    dependencies {
+        classpath("org.springframework.boot:spring-boot-gradle-plugin:2.4.2")
+    }
+}
+
+apply plugin: 'java'
+apply plugin: 'war'
+apply plugin: 'maven-publish'
+apply plugin: 'org.springframework.boot'
+apply plugin: 'io.spring.dependency-management'
+
+group 'ru.iteco'
+version '1.0-SNAPSHOT'
+sourceCompatibility = '1.8'
+compileJava.options.encoding = 'UTF-8'
+
+tasks.withType(JavaCompile) {
+    options.encoding = 'UTF-8'
+}
+
+configurations {
+    compileOnly {
+        extendsFrom annotationProcessor
+    }
+}
+
+repositories {
+    mavenCentral()
+//    maven {
+//        url = "http://sbtnexus.delta.sbrf.ru:8081/nexus/content/groups/public"
+//        allowInsecureProtocol = true
+//    }
+//    maven {
+//        url = "http://sbtnexus.delta.sbrf.ru:8081/nexus/service/local/repositories/jcenter"
+//        allowInsecureProtocol = true
+//    }
+//    maven {
+//        url = "http://sbtnexus.delta.sbrf.ru:8081/nexus/service/local/repositories/backbase_repo/content"
+//        allowInsecureProtocol = true
+//    }
+}
+
+dependencies {
+    testImplementation 'org.junit.jupiter:junit-jupiter-api:5.7.0'
+    testRuntimeOnly 'org.junit.jupiter:junit-jupiter-engine:5.7.0'
+    annotationProcessor 'org.projectlombok:lombok'
+    testAnnotationProcessor 'org.projectlombok:lombok'
+
+    testImplementation 'org.springframework.boot:spring-boot-starter-test'
+    implementation 'org.influxdb:influxdb-java:2.22'
+    implementation 'org.springframework.boot:spring-boot-starter-webflux'
+
+    // https://mvnrepository.com/artifact/org.springdoc/springdoc-openapi-ui
+    implementation group: 'org.springdoc', name: 'springdoc-openapi-webflux-ui', version: '1.6.8'
+
+
+
+}
+
+
+bootWar{
+    archiveFileName = 'mertric_collector_server.war'
+    duplicatesStrategy = DuplicatesStrategy.FAIL
+
+//    archiveFileName = '${project.artifactId}'
+}
+
+test {
+    useJUnitPlatform()
+}
