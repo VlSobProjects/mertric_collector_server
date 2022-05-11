@@ -1,5 +1,6 @@
 package ru.iteco.nt.metric_collector_server.collectors.web_client;
 
+import com.fasterxml.jackson.core.JsonPointer;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.JsonNode;
@@ -19,6 +20,7 @@ import reactor.core.publisher.Mono;
 
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.Collection;
 import java.util.List;
 import java.util.function.Consumer;
 import java.util.function.Function;
@@ -249,6 +251,25 @@ public class Utils {
         return responseSpec
                 .onStatus(HttpStatus::isError, ClientResponse::createException).bodyToMono(JsonNode.class)
                 .onErrorResume(th->Mono.just(getError(source,th.toString())));
+    }
+
+    public JsonNode getFromJsonNode(JsonNode jsonNode,String expression){
+        if(jsonNode instanceof ArrayNode){
+            ArrayNode result = OBJECT_MAPPER.createArrayNode();
+            jsonNode.forEach(j->result.add(j.at(expression)));
+            return result;
+        }
+        return jsonNode.at(expression);
+    }
+
+    public ArrayNode toArrayNode(Collection<?> objects){
+        ArrayNode arrayNode = OBJECT_MAPPER.createArrayNode();
+        objects.forEach(o->arrayNode.add(valueToTree(o)));
+        return arrayNode;
+    }
+
+    public JsonNode stringToTree(String json) throws JsonProcessingException {
+        return OBJECT_MAPPER.readTree(json);
     }
 
 }

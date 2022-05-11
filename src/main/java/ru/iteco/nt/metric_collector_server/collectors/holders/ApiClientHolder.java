@@ -3,8 +3,6 @@ package ru.iteco.nt.metric_collector_server.collectors.holders;
 import lombok.Getter;
 import org.springframework.web.reactive.function.client.WebClient;
 import reactor.core.publisher.Mono;
-import ru.iteco.nt.metric_collector_server.collectors.holders.ApiCallHolder;
-import ru.iteco.nt.metric_collector_server.collectors.model.responses.ApiDataResponse;
 import ru.iteco.nt.metric_collector_server.collectors.model.settings.ApiCall;
 import ru.iteco.nt.metric_collector_server.collectors.model.responses.ApiCallResponse;
 import ru.iteco.nt.metric_collector_server.collectors.model.settings.ApiClient;

@@ -6,7 +6,6 @@ import lombok.Getter;
 import reactor.core.Disposable;
 import reactor.core.publisher.Mono;
 import reactor.util.retry.Retry;
-import ru.iteco.nt.metric_collector_server.collectors.model.responses.ApiDataResponse;
 import ru.iteco.nt.metric_collector_server.collectors.model.settings.ApiCall;
 import ru.iteco.nt.metric_collector_server.collectors.model.responses.ApiCallResponse;
 import ru.iteco.nt.metric_collector_server.collectors.model.settings.ApiCollector;
@@ -14,7 +13,6 @@ import ru.iteco.nt.metric_collector_server.collectors.web_client.Utils;
 
 import java.time.Duration;
 import java.util.concurrent.atomic.AtomicInteger;
-import java.util.function.Consumer;
 
 @Getter
 public class ApiCallHolder extends DataCollector<ApiCallResponse,ApiCall,ApiCallResponse.ApiCallResponseBuilder<ApiCallResponse,?>> {

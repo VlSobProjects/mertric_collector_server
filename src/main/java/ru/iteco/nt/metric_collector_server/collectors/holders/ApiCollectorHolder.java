@@ -8,7 +8,7 @@ import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
 import ru.iteco.nt.metric_collector_server.collectors.model.settings.ApiCollector;
 import ru.iteco.nt.metric_collector_server.collectors.model.responses.ApiCollectorResponse;
-import ru.iteco.nt.metric_collector_server.exception.ApiCollectorException;
+import ru.iteco.nt.metric_collector_server.collectors.exception.ApiCollectorException;
 
 import java.time.Duration;
 import java.util.concurrent.atomic.AtomicInteger;

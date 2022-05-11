@@ -5,11 +5,11 @@ import lombok.AccessLevel;
 import lombok.Getter;
 import lombok.RequiredArgsConstructor;
 import lombok.Setter;
-import ru.iteco.nt.metric_collector_server.collectors.model.responses.ApiDataResponse;
+import ru.iteco.nt.metric_collector_server.DataResponse;
 import ru.iteco.nt.metric_collector_server.collectors.web_client.Utils;
 
 @Getter
-public abstract class DataCollector<R extends ApiDataResponse<S>,S,B extends ApiDataResponse.ApiDataResponseBuilder<S,R,?>> extends ApiHolder<R,S,B> {
+public abstract class DataCollector<R extends DataResponse<S>,S,B extends DataResponse.DataResponseBuilder<S,R,?>> extends ApiHolder<R,S,B> {
 
     private JsonNode data;
     private long time;

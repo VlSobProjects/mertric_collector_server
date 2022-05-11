@@ -1,17 +1,12 @@
 package ru.iteco.nt.metric_collector_server.collectors.holders;
 
-import lombok.AccessLevel;
 import lombok.Getter;
-import lombok.experimental.SuperBuilder;
 import reactor.core.publisher.Mono;
-import ru.iteco.nt.metric_collector_server.collectors.model.responses.ApiDataResponse;
+import ru.iteco.nt.metric_collector_server.DataResponse;
 import ru.iteco.nt.metric_collector_server.collectors.web_client.Utils;
 
-import java.util.function.Consumer;
-import java.util.function.UnaryOperator;
-
 @Getter
-public abstract class ApiHolder<R extends ApiDataResponse<S>,S,B extends ApiDataResponse.ApiDataResponseBuilder<S,R,?>> {
+public abstract class ApiHolder<R extends DataResponse<S>,S,B extends DataResponse.DataResponseBuilder<S,R,?>> {
 
     private final S settings;
     private final int id;
