@@ -4,6 +4,7 @@ import com.fasterxml.jackson.databind.JsonNode;
 import lombok.extern.slf4j.Slf4j;
 import org.influxdb.dto.Point;
 import ru.iteco.nt.metric_collector_server.influx.model.settings.InfluxMetricCollectorConfig;
+import ru.iteco.nt.metric_collector_server.utils.Utils;
 
 import java.time.Instant;
 import java.util.*;
@@ -37,9 +38,7 @@ public class InfluxMetricCollector {
                 .map(InfluxFieldsCollector::new)
                 .map(f->f.getPointSetters(data))
                 .filter(l->l.size()>0)
-                .reduce((l1,l2)-> l1.stream()
-                        .flatMap(s -> l2.stream().map(s::andThen))
-                        .collect(Collectors.toList()))
+                .reduce(Utils::reduceSetters)
                 .orElse(new ArrayList<>());
         setters.forEach(s-> list.add(s.apply(builderSupplier.get()).build()));
     }

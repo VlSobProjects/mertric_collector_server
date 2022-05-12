@@ -15,6 +15,9 @@
     },
     {
       "path": "/pods",
+      "name": "testField",
+      "tag": true,
+      "value": "TestFieldValue",
       "children": [
         {
           "path": "/name",

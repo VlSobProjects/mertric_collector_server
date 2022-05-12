@@ -10,6 +10,7 @@ import lombok.Getter;
 import lombok.Setter;
 import lombok.experimental.UtilityClass;
 import lombok.extern.slf4j.Slf4j;
+import org.influxdb.dto.Point;
 import org.springframework.http.HttpStatus;
 import org.springframework.web.reactive.function.client.ClientResponse;
 import org.springframework.web.reactive.function.client.ExchangeFilterFunction;
@@ -21,6 +22,7 @@ import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collection;
 import java.util.List;
+import java.util.concurrent.atomic.AtomicInteger;
 import java.util.function.Consumer;
 import java.util.function.Function;
 import java.util.function.Supplier;
@@ -268,6 +270,18 @@ public class Utils {
 
     public JsonNode stringToTree(String json) throws JsonProcessingException {
         return OBJECT_MAPPER.readTree(json);
+    }
+
+    public List<Function<Point.Builder,Point.Builder>> reduceSetters(List<Function<Point.Builder,Point.Builder>> l1, List<Function<Point.Builder,Point.Builder>> l2){
+        List<Function<Point.Builder,Point.Builder>> start = l1.size()==0?l2:l1;
+        if(l1.size()==0 && l2.size()==0) return new ArrayList<>();
+        if(l1.size()==0 || l2.size()==0) return start;
+        if(l1.size()==l2.size()){
+            AtomicInteger index= new AtomicInteger();
+            l1.replaceAll(b->b.andThen(l2.get(index.getAndIncrement())));
+            return l1;
+        }
+        return l1.stream().flatMap(s->l2.stream().map(s::andThen)).collect(Collectors.toList());
     }
 
 }
