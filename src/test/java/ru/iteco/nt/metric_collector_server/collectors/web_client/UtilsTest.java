@@ -3,11 +3,9 @@ package ru.iteco.nt.metric_collector_server.collectors.web_client;
 import com.fasterxml.jackson.databind.node.ArrayNode;
 import org.junit.jupiter.api.Test;
 import ru.iteco.nt.metric_collector_server.collectors.model.responses.ApiCallResponse;
-import ru.iteco.nt.metric_collector_server.collectors.model.settings.ApiCall;
+import ru.iteco.nt.metric_collector_server.utils.Utils;
 
 import java.util.Arrays;
-
-import static org.junit.jupiter.api.Assertions.*;
 
 class UtilsTest {
 

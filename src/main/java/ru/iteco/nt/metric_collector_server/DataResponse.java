@@ -3,7 +3,7 @@ package ru.iteco.nt.metric_collector_server;
 import com.fasterxml.jackson.databind.JsonNode;
 import lombok.Getter;
 import lombok.experimental.SuperBuilder;
-import ru.iteco.nt.metric_collector_server.collectors.web_client.Utils;
+import ru.iteco.nt.metric_collector_server.utils.Utils;
 
 @Getter
 @SuperBuilder

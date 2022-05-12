@@ -1,21 +1,8 @@
 package ru.iteco.nt.metric_collector_server.controllers;
 
 import org.junit.jupiter.api.*;
-import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.web.reactive.AutoConfigureWebTestClient;
 import org.springframework.boot.test.context.SpringBootTest;
-import org.springframework.http.MediaType;
-import org.springframework.test.web.reactive.server.WebTestClient;
-import reactor.core.Disposable;
-import ru.iteco.nt.metric_collector_server.collectors.ApiCollectorService;
-import ru.iteco.nt.metric_collector_server.collectors.model.settings.ApiCall;
-import ru.iteco.nt.metric_collector_server.collectors.model.settings.ApiClient;
-import ru.iteco.nt.metric_collector_server.collectors.web_client.Utils;
-
-import java.time.Duration;
-import java.time.LocalDateTime;
-
-import static org.junit.jupiter.api.Assertions.*;
 
 @TestMethodOrder(MethodOrderer.OrderAnnotation.class)
 @AutoConfigureWebTestClient(timeout = "PT10S")

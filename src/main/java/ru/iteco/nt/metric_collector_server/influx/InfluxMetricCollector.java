@@ -11,7 +11,6 @@ import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.function.Function;
 import java.util.function.Supplier;
-import java.util.function.UnaryOperator;
 import java.util.stream.Collectors;
 
 @Slf4j
@@ -43,5 +42,19 @@ public class InfluxMetricCollector {
                         .collect(Collectors.toList()))
                 .orElse(new ArrayList<>());
         setters.forEach(s-> list.add(s.apply(builderSupplier.get()).build()));
+    }
+
+    public void addPointFromData(JsonNode data,List<Point> list){
+        addPointFromData(data, list,Instant.now());
+    }
+
+    public List<Point> getPointFromData(JsonNode data,Instant time){
+        List<Point> list = new ArrayList<>();
+        addPointFromData(data,list,time);
+        return list;
+    }
+
+    public List<Point> getPointFromData(JsonNode data){
+        return getPointFromData(data,Instant.now());
     }
 }

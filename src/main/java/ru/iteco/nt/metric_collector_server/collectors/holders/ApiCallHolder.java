@@ -9,7 +9,7 @@ import reactor.util.retry.Retry;
 import ru.iteco.nt.metric_collector_server.collectors.model.settings.ApiCall;
 import ru.iteco.nt.metric_collector_server.collectors.model.responses.ApiCallResponse;
 import ru.iteco.nt.metric_collector_server.collectors.model.settings.ApiCollector;
-import ru.iteco.nt.metric_collector_server.collectors.web_client.Utils;
+import ru.iteco.nt.metric_collector_server.utils.Utils;
 
 import java.time.Duration;
 import java.util.concurrent.atomic.AtomicInteger;

@@ -2,13 +2,15 @@ package ru.iteco.nt.metric_collector_server.influx;
 
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.JsonNode;
-import com.fasterxml.jackson.databind.JsonSerializable;
+import lombok.SneakyThrows;
 import org.influxdb.dto.Point;
 import org.junit.jupiter.api.Test;
-import ru.iteco.nt.metric_collector_server.collectors.web_client.Utils;
+import ru.iteco.nt.metric_collector_server.utils.Utils;
 import ru.iteco.nt.metric_collector_server.influx.model.settings.InfluxField;
 import ru.iteco.nt.metric_collector_server.influx.model.settings.InfluxMetricCollectorConfig;
 
+import java.nio.file.Files;
+import java.nio.file.Paths;
 import java.time.Instant;
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -58,6 +60,28 @@ class InfluxMetricCollectorTest {
                                 ))
                         .build()
         );
+    }
+
+    @Test
+    void addPointFromData2(){
+        JsonNode source = getTestMetricNode();
+        InfluxMetricCollectorConfig collectorConfig =  getTestConfig();
+        assertNotNull(source);
+        assertNotNull(collectorConfig);
+        InfluxMetricCollector collector = new InfluxMetricCollector(collectorConfig);
+        collector.getPointFromData(source).forEach(System.out::println);
+
+    }
+
+
+    @SneakyThrows
+    private JsonNode getTestMetricNode(){
+        return Utils.stringToTree(new String(Files.readAllBytes(Paths.get("C:\\work\\mertric_collector_server\\src\\test\\resources\\test.json"))));
+    }
+    @SneakyThrows
+    private InfluxMetricCollectorConfig getTestConfig(){
+        JsonNode node = Utils.stringToTree(new String(Files.readAllBytes(Paths.get("C:\\work\\mertric_collector_server\\src\\test\\resources\\InfluxCollectorConfig.json"))));
+        return Utils.getFromJsonNode(node,InfluxMetricCollectorConfig.class);
     }
 }
 

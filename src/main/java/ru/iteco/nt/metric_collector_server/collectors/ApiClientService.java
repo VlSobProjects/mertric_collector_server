@@ -11,7 +11,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.web.reactive.function.client.WebClient;
 import reactor.netty.http.client.HttpClient;
 import ru.iteco.nt.metric_collector_server.collectors.model.settings.ApiClient;
-import ru.iteco.nt.metric_collector_server.collectors.web_client.Utils;
+import ru.iteco.nt.metric_collector_server.utils.Utils;
 
 @RequiredArgsConstructor
 @Service

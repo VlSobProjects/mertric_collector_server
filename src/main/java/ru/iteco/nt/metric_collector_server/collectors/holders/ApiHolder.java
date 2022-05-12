@@ -3,7 +3,7 @@ package ru.iteco.nt.metric_collector_server.collectors.holders;
 import lombok.Getter;
 import reactor.core.publisher.Mono;
 import ru.iteco.nt.metric_collector_server.DataResponse;
-import ru.iteco.nt.metric_collector_server.collectors.web_client.Utils;
+import ru.iteco.nt.metric_collector_server.utils.Utils;
 
 @Getter
 public abstract class ApiHolder<R extends DataResponse<S>,S,B extends DataResponse.DataResponseBuilder<S,R,?>> {

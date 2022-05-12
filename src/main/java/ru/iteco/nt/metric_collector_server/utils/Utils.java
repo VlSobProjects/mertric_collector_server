@@ -1,6 +1,5 @@
-package ru.iteco.nt.metric_collector_server.collectors.web_client;
+package ru.iteco.nt.metric_collector_server.utils;
 
-import com.fasterxml.jackson.core.JsonPointer;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.JsonNode;
@@ -27,7 +26,6 @@ import java.util.function.Function;
 import java.util.function.Supplier;
 import java.util.function.UnaryOperator;
 import java.util.stream.Collectors;
-import java.util.stream.Stream;
 
 @Slf4j
 @UtilityClass
