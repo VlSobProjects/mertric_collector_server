@@ -19,6 +19,7 @@ public enum FieldValueConvertor {
     BOOLEAN(JsonNode::isBoolean,JsonNode::asBoolean),
     OBJECT(JsonNode::isObject,j->null),
     ARRAY(JsonNode::isArray,j->null),
+    NULL(JsonNode::isNull,j->null),
     STRING(j->true,JsonNode::asText)
     ;
 

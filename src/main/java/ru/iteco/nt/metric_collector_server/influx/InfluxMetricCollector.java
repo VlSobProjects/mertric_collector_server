@@ -3,6 +3,9 @@ package ru.iteco.nt.metric_collector_server.influx;
 import com.fasterxml.jackson.databind.JsonNode;
 import lombok.extern.slf4j.Slf4j;
 import org.influxdb.dto.Point;
+import reactor.core.publisher.Flux;
+import reactor.core.publisher.Mono;
+import ru.iteco.nt.metric_collector_server.influx.model.settings.InfluxField;
 import ru.iteco.nt.metric_collector_server.influx.model.settings.InfluxMetricCollectorConfig;
 import ru.iteco.nt.metric_collector_server.utils.Utils;
 
@@ -10,9 +13,9 @@ import java.time.Instant;
 import java.util.*;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicInteger;
-import java.util.function.Function;
-import java.util.function.Supplier;
+import java.util.function.*;
 import java.util.stream.Collectors;
+
 
 @Slf4j
 public class InfluxMetricCollector {
@@ -38,9 +41,13 @@ public class InfluxMetricCollector {
                 .map(InfluxFieldsCollector::new)
                 .map(f->f.getPointSetters(data))
                 .filter(l->l.size()>0)
-                .reduce(Utils::reduceSetters)
+                .reduce((l1,l2)->Utils.reduceSetters(l1,l2,Utils.toArrayNode(config.getFields().stream().map(InfluxField::shortVersion).collect(Collectors.toList()))))
                 .orElse(new ArrayList<>());
-        setters.forEach(s-> list.add(s.apply(builderSupplier.get()).build()));
+        setters.forEach(s-> {
+            Point.Builder builder = s.apply(builderSupplier.get());
+            if(builder.hasFields())
+                list.add(builder.build());
+        });
     }
 
     public void addPointFromData(JsonNode data,List<Point> list){
@@ -56,4 +63,19 @@ public class InfluxMetricCollector {
     public List<Point> getPointFromData(JsonNode data){
         return getPointFromData(data,Instant.now());
     }
+
+    public Mono<List<JsonNode>> validate(){
+        return Flux.fromIterable(config.getFields())
+                .map(InfluxFieldsCollector::new)
+                .flatMap(InfluxFieldsCollector::validate)
+                .collectList();
+    }
+    public Mono<List<JsonNode>> validateData(JsonNode data){
+        return Flux.fromIterable(config.getFields())
+                .map(InfluxFieldsCollector::new)
+                .flatMap(c->c.validateData(data))
+                .collectList();
+    }
+
+
 }

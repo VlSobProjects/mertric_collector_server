@@ -28,6 +28,7 @@ import java.util.function.Function;
 import java.util.function.Supplier;
 import java.util.function.UnaryOperator;
 import java.util.stream.Collectors;
+import java.util.stream.IntStream;
 
 @Slf4j
 @UtilityClass
@@ -262,6 +263,13 @@ public class Utils {
         return jsonNode.at(expression);
     }
 
+    public boolean validatePath(JsonNode jsonNode,String expression){
+        JsonNode node = getFromJsonNode(jsonNode, expression);
+        if(node == null || node.isNull() || (node.isValueNode() && node.asText().trim().isEmpty())) return false;
+        if(node.isContainerNode() && node.isEmpty()) return false;
+        return !node.isContainerNode() || IntStream.range(0, node.size()).map(i -> node.get(i).isNull() ? 0 : 1).sum() != 0;
+    }
+
     public ArrayNode toArrayNode(Collection<?> objects){
         ArrayNode arrayNode = OBJECT_MAPPER.createArrayNode();
         objects.forEach(o->arrayNode.add(valueToTree(o)));
@@ -272,7 +280,7 @@ public class Utils {
         return OBJECT_MAPPER.readTree(json);
     }
 
-    public List<Function<Point.Builder,Point.Builder>> reduceSetters(List<Function<Point.Builder,Point.Builder>> l1, List<Function<Point.Builder,Point.Builder>> l2){
+    public List<Function<Point.Builder,Point.Builder>> reduceSetters(List<Function<Point.Builder,Point.Builder>> l1, List<Function<Point.Builder,Point.Builder>> l2,JsonNode source){
         List<Function<Point.Builder,Point.Builder>> start = l1.size()==0?l2:l1;
         if(l1.size()==0 && l2.size()==0) return new ArrayList<>();
         if(l1.size()==0 || l2.size()==0) return start;
@@ -281,7 +289,27 @@ public class Utils {
             l1.replaceAll(b->b.andThen(l2.get(index.getAndIncrement())));
             return l1;
         }
-        return l1.stream().flatMap(s->l2.stream().map(s::andThen)).collect(Collectors.toList());
+        if(l1.size()==1 || l2.size()==1){
+            return l1.stream().flatMap(s->l2.stream().map(s::andThen)).collect(Collectors.toList());
+        } else {
+            log.warn("reduceSetters but l1 (size: {}) and l2 (size: {}) not meet reduce size criteria: on of the list size is less than another and not equal 1. data: {}",l1.size(),l2.size(),source);
+            AtomicInteger index= new AtomicInteger();
+            List<Function<Point.Builder,Point.Builder>> s = l1.size()>l2.size()?l2:l1;
+            List<Function<Point.Builder,Point.Builder>> l = l1==s?l2:l1;
+            s.replaceAll(b->b.andThen(l.get(index.getAndIncrement())));
+            return s;
+        }
+    }
+
+
+    private String getReduceSkipPoints(List<Function<Point.Builder,Point.Builder>> l1, List<Function<Point.Builder,Point.Builder>> l2){
+        List<Function<Point.Builder,Point.Builder>> s = l1.size()>l2.size()?l2:l1;
+        List<Function<Point.Builder,Point.Builder>> l = l1==s?l2:l1;
+        return IntStream.range(0,l.size()).filter(i->i>=s.size()).mapToObj(i-> {
+            Point.Builder builder = l.get(i).apply(Point.measurement("error"));
+            builder.addField("error","errorPoint");
+            return builder.build();
+        }).map(Point::lineProtocol).collect(Collectors.joining(", ","[","]"));
     }
 
 }

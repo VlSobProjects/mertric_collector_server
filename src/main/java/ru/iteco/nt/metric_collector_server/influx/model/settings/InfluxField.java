@@ -1,18 +1,12 @@
 package ru.iteco.nt.metric_collector_server.influx.model.settings;
 
+import com.fasterxml.jackson.annotation.JsonIgnore;
 import com.fasterxml.jackson.databind.JsonNode;
+import com.fasterxml.jackson.databind.node.ObjectNode;
 import lombok.*;
-import org.influxdb.dto.Point;
-import ru.iteco.nt.metric_collector_server.utils.FieldValueConvertor;
 import ru.iteco.nt.metric_collector_server.utils.Utils;
 
 import java.util.*;
-import java.util.concurrent.TimeUnit;
-import java.util.concurrent.atomic.AtomicInteger;
-import java.util.concurrent.atomic.AtomicReference;
-import java.util.function.Function;
-import java.util.function.Predicate;
-import java.util.stream.Collectors;
 
 @NoArgsConstructor
 @AllArgsConstructor
@@ -25,5 +19,37 @@ public class InfluxField {
     private boolean time;
     private JsonNode value;
     private List<InfluxField> children;
+
+    @JsonIgnore
+    public boolean isNoChildren(){
+        return children==null || children.isEmpty();
+    }
+    @JsonIgnore
+    public boolean hasName(){
+        return name!=null && !name.trim().isEmpty();
+    }
+    @JsonIgnore
+    public boolean hasPath(){
+        return path!=null && !path.trim().isEmpty();
+    }
+    @JsonIgnore
+    public boolean hasValue(){
+        return value!=null && value.isValueNode() && !value.asText().trim().isEmpty();
+    }
+
+    @JsonIgnore
+    public boolean isPointValue(){
+        return !tag && !time && hasName();
+    }
+
+    @JsonIgnore
+    public JsonNode shortVersion(){
+        return ((ObjectNode)Utils.valueToTree(builder().value(value).name(name).path(path).tag(tag).time(time).build()))
+                .put("children",isNoChildren()? 0 : children.size()).put("hasValue",hasValue());
+    }
+
+    public boolean hasChild(InfluxField influxField){
+        return !isNoChildren() && getChildren().contains(influxField);
+    }
 
 }
