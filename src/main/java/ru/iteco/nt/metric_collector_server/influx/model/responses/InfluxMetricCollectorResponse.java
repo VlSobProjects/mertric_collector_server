@@ -1,5 +1,6 @@
 package ru.iteco.nt.metric_collector_server.influx.model.responses;
 
+import com.fasterxml.jackson.databind.JsonNode;
 import lombok.RequiredArgsConstructor;
 import lombok.Setter;
 import lombok.experimental.SuperBuilder;
@@ -8,13 +9,19 @@ import ru.iteco.nt.metric_collector_server.DataResponse;
 import ru.iteco.nt.metric_collector_server.influx.model.settings.InfluxMetricCollectorConfig;
 
 @SuperBuilder
-@Setter
-public class InfluxMetricCollectorResponse extends DataResponse<InfluxMetricCollectorConfig> {
+public class InfluxMetricCollectorResponse extends DataResponse<JsonNode> implements ResponseWithMessage<InfluxMetricCollectorResponse> {
 
     private final boolean collecting;
+    private final InfluxDbConnectorResponse dbConnection;
+    private String message;
 
     public static Mono<InfluxMetricCollectorResponse> factoryError(String source, String message, Object ...objects){
         return Mono.just(factoryError(source, message,builder(),objects));
+    }
+
+    public InfluxMetricCollectorResponse setMessage(String message){
+        this.message = message;
+        return this;
     }
 
 }

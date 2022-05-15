@@ -56,10 +56,23 @@ public class InfluxDbConnector {
                 });
     }
 
-    public Mono<InfluxDbConnectorResponse> startWriteToInflux(){
+    public synchronized Mono<InfluxDbConnectorResponse> startWriteToInflux(){
+        return Mono.fromRunnable(this::start).then(responseMono());
+    }
+
+    public synchronized Mono<InfluxDbConnectorResponse> stopWriteToInflux(){
+        return Mono.fromRunnable(this::stop).then(responseMono());
+    }
+
+    public synchronized void start(){
         if(writeInflux==null || writeInflux.isDisposed())
             writeInflux = startWrite();
-        return responseMono();
+    }
+
+    public synchronized void stop(){
+        if(writeInflux!=null && !writeInflux.isDisposed())
+            writeInflux.dispose();
+        writeInflux = null;
     }
 
     private boolean check(){
@@ -105,7 +118,6 @@ public class InfluxDbConnector {
         maxDataSize = Integer.max(maxDataSize,lastDataSize);
         return list;
     }
-
 
     private  BatchPoints convert(List<Point> points){
         return BatchPoints.database(config.getDataBase()).retentionPolicy(config.getRetentionPolicy()).points(points).build();

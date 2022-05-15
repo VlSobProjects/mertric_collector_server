@@ -22,7 +22,7 @@ import ru.iteco.nt.metric_collector_server.collectors.model.settings.ApiClient;
 import ru.iteco.nt.metric_collector_server.collectors.model.settings.ApiCollector;
 
 
-import java.time.Duration;
+
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -68,7 +68,6 @@ public class ApiCollectorService {
     }
 
 
-
     public Mono<ApiCallResponse> setApiCall(ApiCall apiCall){
         return Optional.ofNullable(clientMap.get(apiCall.getClientId()))
                 .map(h->h.addApiCall(apiCall))
@@ -103,13 +102,13 @@ public class ApiCollectorService {
     public Mono<ApiCollectorResponse> startCollectorById(int collectorId){
         return getApiCollectorById(collectorId)
                 .map(coll->Mono.fromSupplier(coll::startCollecting))
-                .orElse(getErrorApiCollector("collector",collectorId));
+                .orElse(getErrorApiCollector(collectorId));
     }
 
     public Mono<ApiCollectorResponse> stopCollectorById(int collectorId){
         return getApiCollectorById(collectorId)
                 .map(coll->Mono.fromSupplier(coll::stopCollecting))
-                .orElse(getErrorApiCollector("collector",collectorId));
+                .orElse(getErrorApiCollector(collectorId));
     }
 
     public Mono<ApiCallResponse> deleteCollectorById(int collectorId){
@@ -136,7 +135,7 @@ public class ApiCollectorService {
 
 
 
-    private Optional<ApiCollectorHolder> getApiCollectorById(int collectorId){
+    public Optional<ApiCollectorHolder> getApiCollectorById(int collectorId){
         return getFirstApiClientHolder(c->c.isCollector(collectorId)).map(ApiCallHolder::getCollectorHolder);
     }
 
@@ -162,8 +161,8 @@ public class ApiCollectorService {
         return ApiCallResponse.factoryError("ApiCollectorService",String.format("Api %s not found by id: %s",notFoundName,id));
     }
 
-    private static Mono<ApiCollectorResponse> getErrorApiCollector(String notFoundName,int id){
-        return ApiCollectorResponse.factoryError("ApiCollectorService",String.format("Api %s by id: %s",notFoundName,id));
+    private static Mono<ApiCollectorResponse> getErrorApiCollector(int id){
+        return ApiCollectorResponse.factoryError("ApiCollectorService",String.format("Api collector not found by by id: %s",id));
     }
 
 }
