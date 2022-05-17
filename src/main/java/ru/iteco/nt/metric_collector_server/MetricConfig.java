@@ -1,4 +1,4 @@
-package ru.iteco.nt.metric_collector_server.influx.model.settings;
+package ru.iteco.nt.metric_collector_server;
 
 import lombok.AllArgsConstructor;
 import lombok.Getter;
@@ -11,7 +11,7 @@ import lombok.experimental.SuperBuilder;
 @SuperBuilder
 @Setter
 @Getter
-public abstract class InfluxMetricConfig {
+public abstract class MetricConfig {
     private Integer apiCollectorId;
-    private Integer influxDbId;
+    private Integer writerId;
 }

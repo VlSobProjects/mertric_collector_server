@@ -9,7 +9,7 @@ import reactor.core.publisher.Mono;
 import ru.iteco.nt.metric_collector_server.collectors.model.settings.ApiCollector;
 import ru.iteco.nt.metric_collector_server.collectors.model.responses.ApiCollectorResponse;
 import ru.iteco.nt.metric_collector_server.collectors.exception.ApiCollectorException;
-import ru.iteco.nt.metric_collector_server.influx.InfluxCollector;
+import ru.iteco.nt.metric_collector_server.MetricCollector;
 
 import java.time.Duration;
 import java.util.List;
@@ -23,7 +23,7 @@ public class ApiCollectorHolder extends DataCollector<ApiCollectorResponse,ApiCo
     private static final AtomicInteger isSource = new AtomicInteger();
     private final Flux<JsonNode> collector;
     private Disposable collecting;
-    private final List<InfluxCollector<?>> influxCollectors = new CopyOnWriteArrayList<>();
+    private final List<MetricCollector<?,?,?,?>> influxCollectors = new CopyOnWriteArrayList<>();
 
 
     public ApiCollectorHolder(ApiCallHolder apiCallHolder, ApiCollector apiCollector) {
@@ -50,9 +50,9 @@ public class ApiCollectorHolder extends DataCollector<ApiCollectorResponse,ApiCo
 
 
 
-    public ApiCollectorResponse addAndStartInfluxCollector(InfluxCollector<?> influxCollector){
+    public ApiCollectorResponse addAndStartInfluxCollector(MetricCollector<?,?,?,?> influxCollector){
         influxCollectors.add(influxCollector);
-        influxCollector.startCollecting(collector);
+        influxCollector.start(collector);
         return startCollecting();
     }
 
@@ -67,7 +67,7 @@ public class ApiCollectorHolder extends DataCollector<ApiCollectorResponse,ApiCo
         if(isCollecting()){
             collecting.dispose();
             collecting = null;
-            influxCollectors.forEach(InfluxCollector::stop);
+            influxCollectors.forEach(MetricCollector::stop);
         }
         return response();
     }
@@ -87,7 +87,7 @@ public class ApiCollectorHolder extends DataCollector<ApiCollectorResponse,ApiCo
         return (ApiCollectorResponse.ApiCollectorResponseBuilder<ApiCollectorResponse, ?>)
                 ApiCollectorResponse
                         .builder()
-                        .influxCollectors(influxCollectors.stream().map(InfluxCollector::response).collect(Collectors.toList()))
+                        .influxCollectors(influxCollectors.stream().map(MetricCollector::response).collect(Collectors.toList()))
                         .collecting(isCollecting())
                 ;
     }

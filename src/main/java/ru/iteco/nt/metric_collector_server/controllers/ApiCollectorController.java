@@ -50,15 +50,4 @@ public class ApiCollectorController {
         return apiCollectorService.getCollectorData(collectorId,periodSeconds);
     }
 
-    @Operation(summary = "add influx metric collector (config require fields: (influxDbId - existing influxDbConnector id, apiCollectorId - exist apiCollector id))")
-    @PostMapping("/influxCollector")
-    private Mono<ApiCollectorResponse> addInfluxMetricCollector(@RequestBody InfluxMetricCollectorConfig config){
-        return influxMetricService.addSingleCollector(config);
-    }
-
-    @Operation(summary = "add influx metric collector (config require fields: (influxDbId - existing influxDbConnector id, apiCollectorId - exist apiCollector id))")
-    @PostMapping("/influxCollectorGroup")
-    private Mono<ApiCollectorResponse> addInfluxMetricCollectorGroup(@RequestBody InfluxMetricCollectorGroupConfig config){
-        return influxMetricService.addGroupCollector(config);
-    }
 }

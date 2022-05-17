@@ -5,6 +5,7 @@ import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.node.ObjectNode;
 import lombok.*;
 import lombok.experimental.SuperBuilder;
+import ru.iteco.nt.metric_collector_server.MetricConfig;
 import ru.iteco.nt.metric_collector_server.utils.Utils;
 
 import java.util.List;
@@ -14,7 +15,7 @@ import java.util.List;
 @SuperBuilder
 @Setter
 @Getter
-public class InfluxMetricCollectorConfig extends InfluxMetricConfig {
+public class InfluxMetricCollectorConfig extends MetricConfig {
     private Integer apiCollectorId;
     private Integer influxDbId;
     private List<InfluxField> fields;
@@ -27,7 +28,7 @@ public class InfluxMetricCollectorConfig extends InfluxMetricConfig {
         return ((ObjectNode) Utils.valueToTree(InfluxMetricCollectorConfig
                 .builder()
                 .apiCollectorId(getApiCollectorId())
-                .influxDbId(getInfluxDbId())
+                .influxDbId(this.getWriterId())
                 .measurement(measurement)
                 .path(path)
                 .setTime(setTime)
