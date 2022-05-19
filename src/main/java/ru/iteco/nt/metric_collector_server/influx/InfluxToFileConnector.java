@@ -4,7 +4,7 @@ import lombok.extern.slf4j.Slf4j;
 import org.influxdb.dto.Point;
 import ru.iteco.nt.metric_collector_server.MetricWriter;
 import ru.iteco.nt.metric_collector_server.influx.model.responses.InfluxToFileConnectorResponse;
-import ru.iteco.nt.metric_collector_server.influx.model.settings.InfluxToFileConfig;
+import ru.iteco.nt.metric_collector_server.influx.model.settings.InfluxToFileConnectorConfig;
 
 import java.io.IOException;
 import java.nio.file.Files;
@@ -17,24 +17,28 @@ import java.util.List;
 import java.util.stream.Collectors;
 
 @Slf4j
-public class InfluxToFileConnector extends MetricWriter<Point, InfluxToFileConfig, InfluxToFileConnectorResponse,InfluxToFileConnectorResponse.InfluxToFileConnectorResponseBuilder<InfluxToFileConnectorResponse,?>> {
+public class InfluxToFileConnector extends MetricWriter<Point, InfluxToFileConnectorConfig, InfluxToFileConnectorResponse,InfluxToFileConnectorResponse.InfluxToFileConnectorResponseBuilder<InfluxToFileConnectorResponse,?>> {
 
     private final Path filePath;
 
-    public InfluxToFileConnector(InfluxToFileConfig config) {
+    public InfluxToFileConnector(InfluxToFileConnectorConfig config) {
         super(config);
-        Path p = Paths.get(config.getFilePath());
-        Path file = Files.isDirectory(p) && Files.isDirectory(p) && Files.isWritable(p) ?
-                p.resolve("influx_points.txt") : null;
-        if(file!=null){
+//        Path p = Paths.get(config.getFilePath());
+//        Path file = Files.isDirectory(p) && Files.isDirectory(p) && Files.isWritable(p) ?
+//                p.resolve("influx_points.txt") : null;
+        Path file= null;
             try {
-                Files.deleteIfExists(file);
-                Files.createFile(file);
-            } catch (IOException e) {
-                log.error("Fail to create file to write influx Points - config: {} file path:{}",config,file.toAbsolutePath());
-                file = null;
+                Path p = Paths.get(config.getFilePath());
+                file = Files.isDirectory(p) && Files.isDirectory(p) && Files.isWritable(p) ?
+                        p.resolve("influx_points.txt") : null;
+                if(file!=null){
+                    Files.deleteIfExists(file);
+                    Files.createFile(file);
+                }
+            } catch (Exception e) {
+                log.error("Fail to create file to write influx Points - config: {} file path: {}",config,file,e);
             }
-        }
+
         filePath = file;
     }
 

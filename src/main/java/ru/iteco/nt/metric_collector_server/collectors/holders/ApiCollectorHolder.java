@@ -22,12 +22,14 @@ import java.util.stream.Collectors;
 public class ApiCollectorHolder extends DataCollector<ApiCollectorResponse,ApiCollector,ApiCollectorResponse.ApiCollectorResponseBuilder<ApiCollectorResponse,?>> {
     private static final AtomicInteger isSource = new AtomicInteger();
     private final Flux<JsonNode> collector;
+    private final ApiCallHolder apiCallHolder;
     private Disposable collecting;
     private final List<MetricCollector<?,?,?,?>> influxCollectors = new CopyOnWriteArrayList<>();
 
 
     public ApiCollectorHolder(ApiCallHolder apiCallHolder, ApiCollector apiCollector) {
         super(apiCollector,isSource.incrementAndGet());
+        this.apiCallHolder = apiCallHolder;
         Flux<JsonNode> flux = Flux.concat(apiCallHolder.getRequest()
                         ,apiCallHolder.getRequest().delayElement(Duration.ofMillis(apiCollector.getPeriodMillis())).repeat()
                 ).flatMap(j->{

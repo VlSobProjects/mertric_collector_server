@@ -114,16 +114,18 @@ public class InfluxFieldsCollector {
             List<JsonNode> errors = new ArrayList<>();
             AtomicInteger count = new AtomicInteger();
             dataValidateAndCount(data,influxField,count,errors::add);
-            int settersCount = getPointSetters(data).size();
-            if(settersCount!=count.get())
-                errors.add(Utils.getError("InfluxFieldsCollector.validateData",String.format("Number of Setter: %s not equal dataValidateAndCount result: %s",settersCount,count.get())));
-            if(errors.isEmpty()) return Utils.getObjectNode("message","Data InfluxField Check - No error found").set("filed",influxField.shortVersion());
-            else return Utils.getError("InfluxFieldsCollector.validateData","Influx Filed config Validation Fail",errors.toArray());
-
+            if(errors.isEmpty()){
+                int settersCount = getPointSetters(data).size();
+                if(settersCount!=count.get()){
+                    return Utils.getObjectNode("message",String.format("Data InfluxField Check - No error found, One warning: Number of Setter: %s not equal dataValidateAndCount result: %s.",settersCount,count.get()))
+                            .set("filed",influxField.shortVersion());
+                } else return Utils.getObjectNode("message","Data InfluxField Check - No error found, No warning.")
+                        .set("filed",influxField.shortVersion());
+            } else return Utils.getError("InfluxFieldsCollector.validateData","Influx Filed config Validation Fail",errors.toArray());
         });
     }
 
-    private static int countMax(JsonNode node,List<InfluxField> fields,Consumer<JsonNode> error){
+    private static int countMax(JsonNode node,Collection<InfluxField> fields,Consumer<JsonNode> error){
         return fields.stream().mapToInt(f->{
             if(!validatePath(node,f,error)) return 0;
             JsonNode n = Utils.getFromJsonNode(node,f.getPath());
@@ -132,12 +134,10 @@ public class InfluxFieldsCollector {
             } else return n.isNull()?0:1;
         }).max().orElse(0);
     }
-    private static void influxFiledDataError(JsonNode data,InfluxField field,String message,Consumer<JsonNode> error){
-        error.accept(Utils.getError("InfluxFieldsCollector.influxFiledDataError",message,field.shortVersion(),data));
-    }
+
     private static boolean validatePath(JsonNode data, InfluxField field,Consumer<JsonNode> error){
         boolean is = !field.hasPath() || VALIDATE_NODE.test(data,field);
-        if(!is) influxFiledDataError(data,field,"Utils.validatePath fail JsonNode by field path null or empty or contains only nulls",error);
+        if(!is) error.accept(Utils.getError("InfluxFieldsCollector.influxFiledDataError","Utils.validatePath fail JsonNode by field path null or empty or contains only nulls",field.shortVersion(),data));
         return is;
     }
 

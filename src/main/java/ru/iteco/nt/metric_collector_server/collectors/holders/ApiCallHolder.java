@@ -113,6 +113,13 @@ public class ApiCallHolder extends DataCollector<ApiCallResponse,ApiCall,ApiCall
         return getId();
     }
 
+    public Mono<JsonNode> lastApiCall(){
+        ApiData data = getData();
+        if(data.getData()==null)
+            return request;
+        else return Mono.just(data.getData());
+    }
+
 
     public Mono<ApiCallResponse> stopCheckApiCall(){
         stopCheck();

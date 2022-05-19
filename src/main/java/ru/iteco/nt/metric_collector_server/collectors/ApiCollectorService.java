@@ -123,7 +123,6 @@ public class ApiCollectorService {
             clientMap.values().forEach(ApiClientHolder::deleteAll);
             clientMap.clear();
         });
-
     }
 
 

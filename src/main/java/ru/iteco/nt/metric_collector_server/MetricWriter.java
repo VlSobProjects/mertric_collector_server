@@ -46,7 +46,15 @@ public abstract class MetricWriter<T,S extends WriterConfig,R extends WriterResp
 
     @SuppressWarnings("unchecked")
     protected B getSetBuilder(){
-        return (B) getBuilder().time(System.currentTimeMillis()).writing(isWriting()).lastDataSize(lastDataSize).maxDataSize(maxDataSize).maxQueueSize(maxQueueSize).settings(config).id(id);
+        return (B) getBuilder()
+                .time(System.currentTimeMillis())
+                .writing(isWriting())
+                .lastDataSize(lastDataSize)
+                .maxDataSize(maxDataSize)
+                .maxQueueSize(maxQueueSize)
+                .queueSize(pointQueue.size())
+                .settings(config)
+                .id(id);
     }
 
     public boolean isWriting(){

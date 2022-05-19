@@ -30,7 +30,7 @@ public class InfluxMetricCollector extends MetricCollector<
 
 
     public InfluxMetricCollector(InfluxMetricCollectorConfig config){
-        this(config,null);
+        super(config);
     }
 
     public InfluxMetricCollector(InfluxMetricCollectorConfig config,MetricWriter<Point,?,?,?> dbConnector){
@@ -41,11 +41,16 @@ public class InfluxMetricCollector extends MetricCollector<
     public InfluxMetricCollectorResponse response(){
         return InfluxMetricCollectorResponse.builder()
                 .collecting(isRunning())
-                .dbConnection(getDbConnector().response())
+                .dbConnection(getDbConnector()==null ? null : getDbConnector().response())
                 .time(System.currentTimeMillis())
                 .settings(getConfig().shortVersion())
                 .id(getId())
                 .build();
+    }
+
+    @Override
+    public boolean isValidationFail(List<JsonNode> validationResult) {
+        return validationResult.stream().anyMatch(j->j.has("error"));
     }
 
     public void addPointFromData(JsonNode data,List<Point> list,Instant time){

@@ -18,7 +18,7 @@ public class InfluxField {
     private boolean tag;
     private boolean time;
     private JsonNode value;
-    private List<InfluxField> children;
+    private Set<InfluxField> children;
 
     @JsonIgnore
     public boolean isNoChildren(){

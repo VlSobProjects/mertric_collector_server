@@ -1,12 +1,13 @@
 package ru.iteco.nt.metric_collector_server.controllers;
 
+import com.fasterxml.jackson.databind.JsonNode;
 import io.swagger.v3.oas.annotations.Operation;
-import io.swagger.v3.oas.annotations.parameters.RequestBody;
 import lombok.Getter;
 import lombok.RequiredArgsConstructor;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.RequestBody;
 import reactor.core.publisher.Mono;
 import ru.iteco.nt.metric_collector_server.DataResponse;
 import ru.iteco.nt.metric_collector_server.MetricConfig;
@@ -63,14 +64,26 @@ public abstract class AbstractMetricWriterController <
 
     @Operation(summary = "add influx metric collector group (config require fields: (influxDbId - existing influxDbConnector id, apiCollectorId - exist apiCollector id))")
     @PostMapping("/collector/addGroup")
-    private Mono<ApiCollectorResponse> addInfluxMetricCollectorGroup(@org.springframework.web.bind.annotation.RequestBody SG config){
+    private Mono<ApiCollectorResponse> addInfluxMetricCollectorGroup(@RequestBody SG config){
         return metricService.addGroupCollector(config);
     }
 
     @Operation(summary = "add influx metric collector (config require fields: (influxDbId - existing influxDbConnector id, apiCollectorId - exist apiCollector id))")
     @PostMapping("/collector/addCollector")
-    private Mono<ApiCollectorResponse> addInfluxMetricCollector(@org.springframework.web.bind.annotation.RequestBody SC config){
+    private Mono<ApiCollectorResponse> addInfluxMetricCollector(@RequestBody SC config){
         return metricService.addSingleCollector(config);
+    }
+
+    @Operation(summary = "validate collector single collector by id")
+    @PostMapping("/collector/validate/{collectorId}")
+    private Mono<RC> validateCollector(@PathVariable int collectorId){
+        return metricService.validateCollector(collectorId);
+    }
+
+    @Operation(summary = "validate collector group by id")
+    @PostMapping("/collector/validate/{collectorGroupId}")
+    private Mono<RG> validateCollectorGroup(@PathVariable int collectorGroupId){
+        return metricService.validateGroup(collectorGroupId);
     }
 
     @Operation(summary = "add metric collector to group (influxDbId and apiCollector not require, groupId - existing group)")
@@ -78,6 +91,7 @@ public abstract class AbstractMetricWriterController <
     private Mono<RG> addCollectorToGroup(@PathVariable int groupId, @RequestBody SC config){
         return metricService.addCollectorToGroup(groupId,config);
     }
+
     @Operation(summary = "stop metric collector group by id")
     @GetMapping("/collector/stopGroup/{groupId}")
     public Mono<RG> stopGroupById(@PathVariable int groupId){

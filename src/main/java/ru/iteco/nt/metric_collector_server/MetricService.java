@@ -1,19 +1,24 @@
 package ru.iteco.nt.metric_collector_server;
 
+
+import lombok.extern.slf4j.Slf4j;
 import reactor.core.publisher.Mono;
 import ru.iteco.nt.metric_collector_server.collectors.ApiCollectorService;
+import ru.iteco.nt.metric_collector_server.collectors.holders.ApiCallHolder;
+import ru.iteco.nt.metric_collector_server.collectors.holders.ApiCollectorHolder;
 import ru.iteco.nt.metric_collector_server.collectors.model.responses.ApiCollectorResponse;
 import ru.iteco.nt.metric_collector_server.influx.model.responses.*;
 import ru.iteco.nt.metric_collector_server.influx.model.settings.WriterConfig;
+import ru.iteco.nt.metric_collector_server.utils.Utils;
 
-import java.util.List;
-import java.util.Map;
-import java.util.Optional;
+import java.util.*;
 import java.util.concurrent.ConcurrentHashMap;
-import java.util.function.BiFunction;
+import java.util.concurrent.atomic.AtomicReference;
+import java.util.function.*;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
+@Slf4j
 public abstract class MetricService<
         P
         ,SW extends WriterConfig
@@ -96,17 +101,24 @@ public abstract class MetricService<
     }
 
     public Mono<ApiCollectorResponse> addSingleCollector(SC config){
-        return addCollector(config, this::createAndAddSingle);
+        return addCollector(config, this::getCollector);
     }
 
     public Mono<ApiCollectorResponse> addGroupCollector(SG config){
-        return addCollector(config,this::createAndAddGroup);
+        return addCollector(config,this::getGroupCollector);
     }
 
     public Mono<RG> addCollectorToGroup(int groupId, SC config){
-        return getCollectorGroupFromMap(groupId)
-                .map(gr->Mono.fromSupplier(()->gr.addMetricCollector(getCollector(config))))
-                .orElseGet(()->getErrorGroupCollector("MetricCollectorGroup not found by id: "+groupId,config));
+        G group = getCollectorGroupFromMap(groupId).orElse(null);
+        if(group==null) return getErrorGroupCollector("MetricCollectorGroup not found by id: "+groupId,config);
+        ApiCallHolder holder = apiCollectorService.getApiCollectorById(group.getConfig().getApiCollectorId()).map(ApiCollectorHolder::getApiCallHolder).orElse(null);
+        if(holder==null) return Utils.setMessageAndData(group.responseMono(),"Error unexpected Fail to get ApiCall Holder",config);
+        C collector = getCollector(config);
+        UnaryOperator<Mono<RG>> function = rg->{
+            if(group.getCollectors().add(collector)) return Utils.setMessageAndData(group.responseMono(),"Collector added to group");
+            else return Utils.setMessageAndData(group.responseMono(),"Error: Collector is duplicated",config);
+        };
+        return collector.validateAndSet(group.responseMono(),holder.lastApiCall(),function);
     }
 
     public Mono<RG> stopGroupById(int groupId){
@@ -137,6 +149,16 @@ public abstract class MetricService<
                 ).orElseGet(()->getErrorCollector("MetricCollectorGroup not found by id: "+collectorId));
     }
 
+    public Mono<RG> validateGroup(int groupId){
+        return getCollectorGroupFromMap(groupId).map(c->getAndValidateCollectorHolder(c.responseMono(),c,r->r))
+                .orElse(getErrorGroupCollector("Metric Collector Group not found by id: "+groupId));
+    }
+
+    public Mono<RC> validateCollector(int collectorId){
+        return getCollectorFromMap(collectorId).map(c->getAndValidateCollectorHolder(c.responseMono(),c,r->r))
+                .orElse(getErrorCollector("Metric Collector not found by id: "+collectorId));
+    }
+
     private boolean isConnectorExist(SW config){
         return METRIC_WRITER_MAP.values().stream().filter(writerClass::isInstance).anyMatch(c->c.isSameConfig(config));
     }
@@ -145,8 +167,8 @@ public abstract class MetricService<
         return getByIdFormMap(connectorId,writerClass,METRIC_WRITER_MAP);
     }
 
-    private Optional<G> getCollectorGroupFromMap(int collectorId){
-        return getByIdFormMap(collectorId,collectorGroupClass,METRIC_COLLECTOR_MAP);
+    private Optional<G> getCollectorGroupFromMap(int collectorGroupId){
+        return getByIdFormMap(collectorGroupId,collectorGroupClass,METRIC_COLLECTOR_MAP);
     }
 
     private Optional<C> getCollectorFromMap(int collectorId){
@@ -155,7 +177,12 @@ public abstract class MetricService<
 
     @SuppressWarnings("unchecked")
     private static <V,T extends V> Optional<T> getByIdFormMap(int id,Class<T> tClass,Map<Integer,V> map) {
-        return Optional.ofNullable(map.get(id)).map(w->tClass.isInstance(w) ? (T)w : null);
+        return Optional.ofNullable(map.get(id)).map(w-> {
+            if(!tClass.isInstance(w)){
+               log.error("getByIdFormMap object: {} class: {} isInstance fail!",w,tClass);
+               return null;
+            } else return (T) w;
+        });
     }
 
     private RW getResponseByConfig(SW config){
@@ -173,10 +200,26 @@ public abstract class MetricService<
                 .map(w-> (W) w);
     }
 
-    private C createAndAddSingle(SC config, W writer){
-        C collector = getCollector(config,writer);
-        METRIC_COLLECTOR_MAP.put(collector.getId(),collector);
-        return collector;
+    private static  <R extends DataResponse<?> & ResponseWithMessage<R>,T extends MetricConfig,W extends MetricWriter<?,?,?,?>> Mono<R> addToCollectorMap(Mono<R> response, T config, W connector, BiFunction<T,W, MetricCollector<?,?,?,?>> creator, AtomicReference<MetricCollector<?,?,?,?>> collectorRef){
+        if(METRIC_COLLECTOR_MAP.values().stream().anyMatch(c->c.getConfig().equals(config)))
+            return Utils.setMessageAndData(response
+                    ,"Error: Duplicated config collector"
+                    ,config
+                    ,METRIC_COLLECTOR_MAP.values().stream().filter(c->c.getConfig().equals(config)).findFirst().orElse(null));
+        else {
+            MetricCollector<?,?,?,?> collector = creator.apply(config,connector);
+            METRIC_COLLECTOR_MAP.put(collector.getId(),collector);
+            collectorRef.set(collector);
+            return Utils.setMessageAndData(response,"Single Collector added.");
+        }
+    }
+
+    private <R extends DataResponse<?> & ResponseWithMessage<R>,T extends MetricCollector<?,?,?,?>> Mono<R> getAndValidateCollectorHolder(Mono<R> response,T collector,UnaryOperator<Mono<R>> function){
+        ApiCollectorHolder holder = apiCollectorService.getApiCollectorById(collector.getConfig().getApiCollectorId()).orElse(null);
+        if(holder==null) return Utils.setMessageAndData(response,"Unexpected ApiCollectorHolder not found in apiCollectorService",collector.getConfig());
+        else {
+            return collector.validateAndSet(response,holder.getApiCallHolder().lastApiCall(),function);
+        }
     }
 
     private <T extends MetricConfig> Mono<ApiCollectorResponse> addCollector(T config, BiFunction<T,W, MetricCollector<?,?,?,?>> creator){
@@ -187,17 +230,19 @@ public abstract class MetricService<
         W connector = getWriterFromMap(config.getWriterId()).orElse(null);
         if(connector==null)
             return ApiCollectorResponse.factoryError("MetricService.addCollector",String.format("not found MetricWriter by Id: %s, set up MetricWriter first",config.getWriterId()),config);
-        return apiCollectorService
-                .getApiCollectorById(config.getApiCollectorId())
-                .map(holder->Mono.fromSupplier(()->holder.addAndStartInfluxCollector(creator.apply(config,connector))))
-                .orElseGet(()->ApiCollectorResponse.factoryError("MetricService.addCollector",String.format("not found ApiCollector by Id: %s",config.getApiCollectorId()),config));
+        ApiCollectorHolder collectorHolder = apiCollectorService.getApiCollectorById(config.getApiCollectorId()).orElse(null);
+        if(collectorHolder==null)
+            return ApiCollectorResponse.factoryError("MetricService.addCollector","ApiCollectorHolder not found by id: "+config.getApiCollectorId(),config);
+        AtomicReference<MetricCollector<?,?,?,?>> ref = new AtomicReference<>();
+        Mono<ApiCollectorResponse> responseMono = addToCollectorMap(collectorHolder.monoResponse(),config,connector,creator,ref);
+        if(ref.get()==null) return responseMono;
+        return ref.get().validateAndSet(responseMono
+                ,collectorHolder.getApiCallHolder().lastApiCall()
+                ,r->Utils.setMessageAndData(Mono.fromSupplier(()->collectorHolder.addAndStartInfluxCollector(ref.get()))
+                        ,"Metric Collector Started")
+        );
     }
 
-    private G createAndAddGroup(SG config,W connector){
-        G groupCollector = getGroupCollector(config,connector);
-        METRIC_COLLECTOR_MAP.put(groupCollector.getId(),groupCollector);
-        return groupCollector;
-    }
 
 
 

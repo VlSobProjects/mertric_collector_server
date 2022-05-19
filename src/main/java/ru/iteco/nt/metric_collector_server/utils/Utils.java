@@ -17,6 +17,8 @@ import org.springframework.web.reactive.function.client.ExchangeFilterFunction;
 import org.springframework.web.reactive.function.client.WebClient;
 import org.springframework.web.reactive.function.client.WebClientResponseException;
 import reactor.core.publisher.Mono;
+import ru.iteco.nt.metric_collector_server.DataResponse;
+import ru.iteco.nt.metric_collector_server.influx.model.responses.ResponseWithMessage;
 
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -310,6 +312,13 @@ public class Utils {
             builder.addField("error","errorPoint");
             return builder.build();
         }).map(Point::lineProtocol).collect(Collectors.joining(", ","[","]"));
+    }
+
+    public  <R extends DataResponse<?> & ResponseWithMessage<R>> Mono<R> setMessageAndData(Mono<R> response, String message, Object...objects){
+        return response.map(r->{
+            r.addMessage(message).dataArray(objects);
+            return r;
+        });
     }
 
 }

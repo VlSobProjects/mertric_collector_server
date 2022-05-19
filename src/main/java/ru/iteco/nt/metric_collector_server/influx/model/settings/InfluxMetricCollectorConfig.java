@@ -9,17 +9,22 @@ import ru.iteco.nt.metric_collector_server.MetricConfig;
 import ru.iteco.nt.metric_collector_server.utils.Utils;
 
 import java.util.List;
+import java.util.Set;
 
 @NoArgsConstructor
 @AllArgsConstructor
 @SuperBuilder
 @Setter
 @Getter
+@EqualsAndHashCode(onlyExplicitlyIncluded = true,callSuper = false)
 public class InfluxMetricCollectorConfig extends MetricConfig {
     private Integer apiCollectorId;
     private Integer influxDbId;
-    private List<InfluxField> fields;
+    @EqualsAndHashCode.Include
+    private Set<InfluxField> fields;
+    @EqualsAndHashCode.Include
     private String measurement;
+    @EqualsAndHashCode.Include
     private String path;
     private boolean setTime;
 
@@ -32,6 +37,7 @@ public class InfluxMetricCollectorConfig extends MetricConfig {
                 .measurement(measurement)
                 .path(path)
                 .setTime(setTime)
+                .build()
         )).put("fields",fields.size());
     }
 

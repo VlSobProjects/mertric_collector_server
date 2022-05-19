@@ -4,7 +4,7 @@ import lombok.Data;
 import lombok.EqualsAndHashCode;
 
 @Data
-public class InfluxToFileConfig implements WriterConfig {
+public class InfluxToFileConnectorConfig implements WriterConfig {
 
     @EqualsAndHashCode.Exclude
     private int minBatchSize = 100;

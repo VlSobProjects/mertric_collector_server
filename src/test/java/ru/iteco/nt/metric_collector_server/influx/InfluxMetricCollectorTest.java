@@ -8,6 +8,7 @@ import org.junit.jupiter.api.Test;
 import reactor.core.Disposable;
 import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
+import ru.iteco.nt.metric_collector_server.influx.model.settings.InfluxToFileConnectorConfig;
 import ru.iteco.nt.metric_collector_server.utils.Utils;
 import ru.iteco.nt.metric_collector_server.influx.model.settings.InfluxField;
 import ru.iteco.nt.metric_collector_server.influx.model.settings.InfluxMetricCollectorConfig;
@@ -17,6 +18,7 @@ import java.nio.file.Paths;
 import java.time.Instant;
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.HashSet;
 import java.util.List;
 import java.util.concurrent.TimeUnit;
 import java.util.stream.Collectors;
@@ -59,10 +61,10 @@ class InfluxMetricCollectorTest {
                         .measurement("test")
                         .setTime(true)
                         .apiCollectorId(0)
-                        .fields(Arrays.asList(
+                        .fields(new HashSet<>(Arrays.asList(
                                 InfluxField.builder().tag(true).name("metric").value(Utils.valueToTree(name)).build()
                                 ,InfluxField.builder().path(valuePath).name("value").build()
-                                ))
+                                )))
                         .build()
         );
     }
@@ -161,6 +163,17 @@ class InfluxMetricCollectorTest {
         while (!d.isDisposed()){
             TimeUnit.MILLISECONDS.wait(500);
         }
+    }
+
+    @Test
+    void testInfluxRoFileConnectorConfig() throws JsonProcessingException {
+        String jsonConfig = "{\n" +
+                "  \"minBatchSize\": 100,\n" +
+                "  \"periodSeconds\": 10,\n" +
+                "  \"filePath\": \"C:/temp/influx_to_file\"\n" +
+                "}";
+        InfluxToFileConnectorConfig config = Utils.getFromJsonNode(Utils.stringToTree(jsonConfig),InfluxToFileConnectorConfig.class);
+        System.out.println(config);
     }
 }
 
