@@ -18,13 +18,18 @@ import java.util.Map;
 @Builder
 @NoArgsConstructor
 @AllArgsConstructor
-public class ApiClient {
+@EqualsAndHashCode(onlyExplicitlyIncluded = true)
+public class ApiClientConfig {
+    @EqualsAndHashCode.Include
     private boolean https;
+    @EqualsAndHashCode.Include
     private String baseUrl;
     private String name;
     @Singular
+    @EqualsAndHashCode.Include
     private  Map<String,String> headers;
     @Singular
+    @EqualsAndHashCode.Include
     private Map<String, List<String>> cookies;
     @Builder.Default
     private int wrightReadTimeout = 0;

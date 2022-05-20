@@ -10,7 +10,7 @@ import org.springframework.http.client.reactive.ReactorClientHttpConnector;
 import org.springframework.stereotype.Service;
 import org.springframework.web.reactive.function.client.WebClient;
 import reactor.netty.http.client.HttpClient;
-import ru.iteco.nt.metric_collector_server.collectors.model.settings.ApiClient;
+import ru.iteco.nt.metric_collector_server.collectors.model.settings.ApiClientConfig;
 import ru.iteco.nt.metric_collector_server.utils.Utils;
 
 @RequiredArgsConstructor
@@ -19,8 +19,8 @@ public class ApiClientService {
 
 //    private final WebClient.Builder builder;
 
-    public WebClient getApiClientBuilder(ApiClient apiClient){
-        return apiClient.getClient(WebClient.builder());
+    public WebClient getApiClientBuilder(ApiClientConfig apiClientConfig){
+        return apiClientConfig.getClient(WebClient.builder());
     }
 
     public WebClient.Builder getBuilder(HttpClient httpClient){

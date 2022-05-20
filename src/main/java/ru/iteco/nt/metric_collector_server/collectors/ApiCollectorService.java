@@ -10,6 +10,7 @@ import org.springframework.stereotype.Service;
 import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
 
+import ru.iteco.nt.metric_collector_server.DataResponse;
 import ru.iteco.nt.metric_collector_server.collectors.holders.ApiCallHolder;
 import ru.iteco.nt.metric_collector_server.collectors.holders.ApiClientHolder;
 import ru.iteco.nt.metric_collector_server.collectors.holders.ApiCollectorHolder;
@@ -17,14 +18,15 @@ import ru.iteco.nt.metric_collector_server.collectors.holders.DataCollector;
 import ru.iteco.nt.metric_collector_server.collectors.model.responses.ApiCallResponse;
 import ru.iteco.nt.metric_collector_server.collectors.model.responses.ApiClientResponse;
 import ru.iteco.nt.metric_collector_server.collectors.model.responses.ApiCollectorResponse;
-import ru.iteco.nt.metric_collector_server.collectors.model.settings.ApiCall;
-import ru.iteco.nt.metric_collector_server.collectors.model.settings.ApiClient;
-import ru.iteco.nt.metric_collector_server.collectors.model.settings.ApiCollector;
-
+import ru.iteco.nt.metric_collector_server.collectors.model.settings.ApiCallConfig;
+import ru.iteco.nt.metric_collector_server.collectors.model.settings.ApiClientConfig;
+import ru.iteco.nt.metric_collector_server.collectors.model.settings.ApiCollectorConfig;
+import ru.iteco.nt.metric_collector_server.utils.Utils;
 
 
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import java.util.Optional;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.function.Function;
@@ -42,10 +44,11 @@ public class ApiCollectorService {
 
 
 
-    public Mono<ApiClientResponse> setApiClient(ApiClient apiClient){
-        return Mono.fromSupplier(()->new ApiClientHolder(apiClientService.getBuilder(),apiClient))
+    public Mono<ApiClientResponse> setApiClient(ApiClientConfig apiClientConfig){
+        return getErrorIfExist(apiClientConfig).orElseGet(()->Mono.fromSupplier(()->new ApiClientHolder(apiClientService.getBuilder(), apiClientConfig))
                 .doOnNext(h->clientMap.put(h.getId(),h))
-                .map(ApiClientHolder::response);
+                .map(ApiClientHolder::response)
+        );
     }
 
     public Mono<ApiClientResponse> getApiClientById(int clientId){
@@ -68,10 +71,11 @@ public class ApiCollectorService {
     }
 
 
-    public Mono<ApiCallResponse> setApiCall(ApiCall apiCall){
-        return Optional.ofNullable(clientMap.get(apiCall.getClientId()))
-                .map(h->h.addApiCall(apiCall))
-                .orElseGet(()->getErrorApiCall("client",apiCall.getClientId()));
+    public Mono<ApiCallResponse> setApiCall(ApiCallConfig apiCallConfig){
+        return Optional.ofNullable(clientMap.get(apiCallConfig.getClientId()))
+                .map(cl->getErrorIfExist(cl.getId(),apiCallConfig)
+                        .orElseGet(()->cl.addApiCall(apiCallConfig))
+                ).orElseGet(()->getErrorApiCall("client", apiCallConfig.getClientId()));
     }
 
     public Mono<ApiCallResponse> checkApiClientById(int apiCallId){
@@ -94,8 +98,12 @@ public class ApiCollectorService {
         return getApiCallResponse(apiCallId,ApiCallHolder::removeCollector);
     }
 
-    public Mono<ApiCallResponse> setCollectorById(int apiCallId, ApiCollector apiCollector){
-        return getApiCallResponse(apiCallId,call->Mono.fromSupplier(()->call.setCollector(apiCollector)));
+    public Mono<ApiCallResponse> setCollectorById(int apiCallId, ApiCollectorConfig apiCollectorConfig){
+        return getErrorIfExist(apiCallId,apiCollectorConfig).orElseGet(()->getApiClientHolder(apiCallId).map(h-> {
+                h.getCollectorHolder().stop();
+                return Mono.fromSupplier(()->h.setCollector(apiCollectorConfig));
+            }).orElseGet(()->getErrorApiCall("client", apiCallId))
+        );
     }
 
 
@@ -162,6 +170,19 @@ public class ApiCollectorService {
 
     private static Mono<ApiCollectorResponse> getErrorApiCollector(int id){
         return ApiCollectorResponse.factoryError("ApiCollectorService",String.format("Api collector not found by by id: %s",id));
+    }
+
+    private Optional<Mono<ApiClientResponse>> getErrorIfExist(ApiClientConfig config){
+        return clientMap.values().stream().map(c->c.errorIfExist(config)).filter(Objects::nonNull).findFirst();
+    }
+
+    private Optional<Mono<ApiCallResponse>> getErrorIfExist(int apiCallId,ApiCallConfig config){
+        return getApiClientHolder(apiCallId).map(h->h.errorIfExist(config));
+    }
+    private Optional<Mono<ApiCallResponse>> getErrorIfExist(int apiCallId,ApiCollectorConfig config){
+        return getApiClientHolder(apiCallId)
+                .map(h->h.getCollectorHolder()==null? null :
+                        h.getCollectorHolder().errorIfExist(config).flatMap(ce-> ApiCallResponse.factoryError("ApiCollectorService","duplicated ApiCollectorConfig",config,ce.getSettings())));
     }
 
 }

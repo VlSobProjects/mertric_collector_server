@@ -6,7 +6,7 @@ import lombok.extern.slf4j.Slf4j;
 import reactor.core.Disposable;
 import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
-import ru.iteco.nt.metric_collector_server.collectors.model.settings.ApiCollector;
+import ru.iteco.nt.metric_collector_server.collectors.model.settings.ApiCollectorConfig;
 import ru.iteco.nt.metric_collector_server.collectors.model.responses.ApiCollectorResponse;
 import ru.iteco.nt.metric_collector_server.collectors.exception.ApiCollectorException;
 import ru.iteco.nt.metric_collector_server.MetricCollector;
@@ -19,7 +19,7 @@ import java.util.stream.Collectors;
 
 @Getter
 @Slf4j
-public class ApiCollectorHolder extends DataCollector<ApiCollectorResponse,ApiCollector,ApiCollectorResponse.ApiCollectorResponseBuilder<ApiCollectorResponse,?>> {
+public class ApiCollectorHolder extends DataCollector<ApiCollectorResponse, ApiCollectorConfig,ApiCollectorResponse.ApiCollectorResponseBuilder<ApiCollectorResponse,?>> {
     private static final AtomicInteger isSource = new AtomicInteger();
     private final Flux<JsonNode> collector;
     private final ApiCallHolder apiCallHolder;
@@ -27,11 +27,11 @@ public class ApiCollectorHolder extends DataCollector<ApiCollectorResponse,ApiCo
     private final List<MetricCollector<?,?,?,?>> influxCollectors = new CopyOnWriteArrayList<>();
 
 
-    public ApiCollectorHolder(ApiCallHolder apiCallHolder, ApiCollector apiCollector) {
-        super(apiCollector,isSource.incrementAndGet());
+    public ApiCollectorHolder(ApiCallHolder apiCallHolder, ApiCollectorConfig apiCollectorConfig) {
+        super(apiCollectorConfig,isSource.incrementAndGet());
         this.apiCallHolder = apiCallHolder;
         Flux<JsonNode> flux = Flux.concat(apiCallHolder.getRequest()
-                        ,apiCallHolder.getRequest().delayElement(Duration.ofMillis(apiCollector.getPeriodMillis())).repeat()
+                        ,apiCallHolder.getRequest().delayElement(Duration.ofMillis(apiCollectorConfig.getPeriodMillis())).repeat()
                 ).flatMap(j->{
                     if(j.has("error")){
                         return Mono.error(new ApiCollectorException(j));
@@ -54,7 +54,6 @@ public class ApiCollectorHolder extends DataCollector<ApiCollectorResponse,ApiCo
 
     public ApiCollectorResponse addAndStartInfluxCollector(MetricCollector<?,?,?,?> influxCollector){
         influxCollectors.add(influxCollector);
-        influxCollector.start(collector);
         return startCollecting();
     }
 
@@ -62,16 +61,21 @@ public class ApiCollectorHolder extends DataCollector<ApiCollectorResponse,ApiCo
         if(!isCollecting()) {
             collecting = collector.subscribe();
         }
+        influxCollectors.stream().filter(c->!c.isRunning()).forEach(c->c.start(collector));
         return response();
     }
 
     public synchronized ApiCollectorResponse stopCollecting(){
+        stop();
+        return response();
+    }
+
+    public synchronized void stop(){
         if(isCollecting()){
             collecting.dispose();
             collecting = null;
             influxCollectors.forEach(MetricCollector::stop);
         }
-        return response();
     }
 
     public Flux<ApiData> getApiData(long periodSeconds){

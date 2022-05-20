@@ -315,8 +315,12 @@ public class Utils {
     }
 
     public  <R extends DataResponse<?> & ResponseWithMessage<R>> Mono<R> setMessageAndData(Mono<R> response, String message, Object...objects){
+        return setData(response.map(r->r.addMessage(message)),objects);
+    }
+
+    public  <R extends DataResponse<?>> Mono<R> setData(Mono<R> response, Object...objects){
         return response.map(r->{
-            r.addMessage(message).dataArray(objects);
+            r.dataArray(objects);
             return r;
         });
     }

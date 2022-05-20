@@ -6,7 +6,7 @@ import reactor.core.publisher.Mono;
 import ru.iteco.nt.metric_collector_server.collectors.ApiCollectorService;
 import ru.iteco.nt.metric_collector_server.influx.model.responses.InfluxDbConnectorResponse;
 import ru.iteco.nt.metric_collector_server.influx.model.settings.InfluxDBConnectorConfig;
-import ru.iteco.nt.metric_collector_server.influx.model.settings.InfluxMetricCollectorConfig;
+
 
 
 

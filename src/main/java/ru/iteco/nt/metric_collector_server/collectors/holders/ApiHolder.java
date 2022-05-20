@@ -5,6 +5,8 @@ import reactor.core.publisher.Mono;
 import ru.iteco.nt.metric_collector_server.DataResponse;
 import ru.iteco.nt.metric_collector_server.utils.Utils;
 
+import java.util.Optional;
+
 @Getter
 public abstract class ApiHolder<R extends DataResponse<S>,S,B extends DataResponse.DataResponseBuilder<S,R,?>> {
 
@@ -35,5 +37,8 @@ public abstract class ApiHolder<R extends DataResponse<S>,S,B extends DataRespon
         return Mono.fromSupplier(this::response);
     }
 
+    public Mono<R> errorIfExist(S config){
+        return settings.equals(config) ? responseError(getClass().getSimpleName(),"duplicated configs",settings,config) : null;
+    }
 
 }

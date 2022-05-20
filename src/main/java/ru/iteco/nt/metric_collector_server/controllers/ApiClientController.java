@@ -7,7 +7,7 @@ import org.springframework.web.bind.annotation.*;
 import reactor.core.publisher.Mono;
 import ru.iteco.nt.metric_collector_server.collectors.ApiCollectorService;
 import ru.iteco.nt.metric_collector_server.collectors.model.responses.ApiClientResponse;
-import ru.iteco.nt.metric_collector_server.collectors.model.settings.ApiClient;
+import ru.iteco.nt.metric_collector_server.collectors.model.settings.ApiClientConfig;
 
 import java.util.List;
 
@@ -31,7 +31,7 @@ public class ApiClientController {
     }
     @Operation(summary = "Add Api client")
     @PostMapping(value = "/add")
-    private Mono<ApiClientResponse> addClient(@RequestBody ApiClient client){
+    private Mono<ApiClientResponse> addClient(@RequestBody ApiClientConfig client){
         return apiCollectorService.setApiClient(client);
     }
 

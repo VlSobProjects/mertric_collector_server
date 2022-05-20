@@ -5,15 +5,14 @@ import lombok.Getter;
 import lombok.experimental.SuperBuilder;
 import reactor.core.publisher.Mono;
 import ru.iteco.nt.metric_collector_server.DataResponse;
-import ru.iteco.nt.metric_collector_server.collectors.model.settings.ApiCollector;
+import ru.iteco.nt.metric_collector_server.collectors.model.settings.ApiCollectorConfig;
 import ru.iteco.nt.metric_collector_server.influx.model.responses.ResponseWithMessage;
 
-import java.util.ArrayList;
 import java.util.List;
 
 @Getter
 @SuperBuilder
-public class ApiCollectorResponse extends DataResponse<ApiCollector> implements ResponseWithMessage<ApiCollectorResponse> {
+public class ApiCollectorResponse extends DataResponse<ApiCollectorConfig> implements ResponseWithMessage<ApiCollectorResponse> {
     private final boolean collecting;
     private final List<DataResponse<?>> influxCollectors;
     private String message;

@@ -6,16 +6,16 @@ import lombok.Getter;
 import reactor.core.Disposable;
 import reactor.core.publisher.Mono;
 import reactor.util.retry.Retry;
-import ru.iteco.nt.metric_collector_server.collectors.model.settings.ApiCall;
+import ru.iteco.nt.metric_collector_server.collectors.model.settings.ApiCallConfig;
 import ru.iteco.nt.metric_collector_server.collectors.model.responses.ApiCallResponse;
-import ru.iteco.nt.metric_collector_server.collectors.model.settings.ApiCollector;
+import ru.iteco.nt.metric_collector_server.collectors.model.settings.ApiCollectorConfig;
 import ru.iteco.nt.metric_collector_server.utils.Utils;
 
 import java.time.Duration;
 import java.util.concurrent.atomic.AtomicInteger;
 
 @Getter
-public class ApiCallHolder extends DataCollector<ApiCallResponse,ApiCall,ApiCallResponse.ApiCallResponseBuilder<ApiCallResponse,?>> {
+public class ApiCallHolder extends DataCollector<ApiCallResponse, ApiCallConfig,ApiCallResponse.ApiCallResponseBuilder<ApiCallResponse,?>> {
     private static final AtomicInteger isSource = new AtomicInteger();
     private ApiCollectorHolder collectorHolder;
     private final Mono<JsonNode> request;
@@ -25,21 +25,21 @@ public class ApiCallHolder extends DataCollector<ApiCallResponse,ApiCall,ApiCall
 
 
 
-    public ApiCallHolder(ApiClientHolder apiClientHolder, ApiCall apiCall){
-        super(apiCall,isSource.incrementAndGet());
-        request = apiCall.getMethod().trim().equalsIgnoreCase("get") ?
-                Utils.getWithOnHttpErrorResponseSpec("api call",apiClientHolder.getWebClient().get().uri(apiCall.getUri()).retrieve()) :
-                Mono.just(Utils.getError("ApiCallHolder",String.format("Method: %s not implemented",apiCall.getMethod())))
+    public ApiCallHolder(ApiClientHolder apiClientHolder, ApiCallConfig apiCallConfig){
+        super(apiCallConfig,isSource.incrementAndGet());
+        request = apiCallConfig.getMethod().trim().equalsIgnoreCase("get") ?
+                Utils.getWithOnHttpErrorResponseSpec("api call",apiClientHolder.getWebClient().get().uri(apiCallConfig.getUri()).retrieve()) :
+                Mono.just(Utils.getError("ApiCallHolder",String.format("Method: %s not implemented", apiCallConfig.getMethod())))
         ;
-        retry = apiCall.getRetry()>0 && apiCall.getRetryPeriod()>0 ?
-                apiCall.isRetryBackoff() ?
-                        Retry.backoff(apiCall.getRetry(), Duration.ofSeconds(apiCall.getRetryPeriod())) :
-                        Retry.fixedDelay(apiCall.getRetry(),Duration.ofSeconds(apiCall.getRetryPeriod())):
+        retry = apiCallConfig.getRetry()>0 && apiCallConfig.getRetryPeriod()>0 ?
+                apiCallConfig.isRetryBackoff() ?
+                        Retry.backoff(apiCallConfig.getRetry(), Duration.ofSeconds(apiCallConfig.getRetryPeriod())) :
+                        Retry.fixedDelay(apiCallConfig.getRetry(),Duration.ofSeconds(apiCallConfig.getRetryPeriod())):
                 null;
-        if(apiCall.getCheckPeriod()>0){
+        if(apiCallConfig.getCheckPeriod()>0){
             setStartOnError(()->{
                         if(!isChecking()){
-                            checkApiCall = setCheckApiCall(apiCall.getCheckPeriod(),request);
+                            checkApiCall = setCheckApiCall(apiCallConfig.getCheckPeriod(),request);
                         }
                     }
             );
@@ -69,9 +69,9 @@ public class ApiCallHolder extends DataCollector<ApiCallResponse,ApiCall,ApiCall
                 .isChecking(isChecking());
     }
 
-    public synchronized ApiCallResponse setCollector(ApiCollector apiCollector){
+    public synchronized ApiCallResponse setCollector(ApiCollectorConfig apiCollectorConfig){
         if(collectorHolder==null){
-            collectorHolder = new ApiCollectorHolder(this,apiCollector);
+            collectorHolder = new ApiCollectorHolder(this, apiCollectorConfig);
         }
         return response();
     }

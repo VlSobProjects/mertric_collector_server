@@ -8,8 +8,8 @@ import reactor.core.publisher.Mono;
 import ru.iteco.nt.metric_collector_server.collectors.ApiCollectorService;
 import ru.iteco.nt.metric_collector_server.collectors.model.responses.ApiCallResponse;
 import ru.iteco.nt.metric_collector_server.collectors.model.responses.ApiClientResponse;
-import ru.iteco.nt.metric_collector_server.collectors.model.settings.ApiCall;
-import ru.iteco.nt.metric_collector_server.collectors.model.settings.ApiCollector;
+import ru.iteco.nt.metric_collector_server.collectors.model.settings.ApiCallConfig;
+import ru.iteco.nt.metric_collector_server.collectors.model.settings.ApiCollectorConfig;
 
 @Slf4j
 @RequiredArgsConstructor
@@ -21,8 +21,8 @@ public class ApiCallController {
 
     @Operation(summary = "Add Api call to client",description = "ApiCall must have clientId with Id of existing Api client")
     @PostMapping("/add")
-    private Mono<ApiCallResponse> addCall(@RequestBody ApiCall apiCall){
-        return apiCollectorService.setApiCall(apiCall);
+    private Mono<ApiCallResponse> addCall(@RequestBody ApiCallConfig apiCallConfig){
+        return apiCollectorService.setApiCall(apiCallConfig);
     }
 
     @Operation(summary = "Check api call and return data",
@@ -56,8 +56,8 @@ public class ApiCallController {
 
     @Operation(summary = "set up ApiCollector -  collecting data from api with delay")
     @PostMapping(value = "/setCollector/{apiCallId}")
-    private Mono<ApiCallResponse> setCollectorById(@PathVariable int apiCallId, @RequestBody ApiCollector apiCollector){
-        return apiCollectorService.setCollectorById(apiCallId,apiCollector);
+    private Mono<ApiCallResponse> setCollectorById(@PathVariable int apiCallId, @RequestBody ApiCollectorConfig apiCollectorConfig){
+        return apiCollectorService.setCollectorById(apiCallId, apiCollectorConfig);
     }
 
     @Operation(summary = "stop collecting data from api by id of api call")
