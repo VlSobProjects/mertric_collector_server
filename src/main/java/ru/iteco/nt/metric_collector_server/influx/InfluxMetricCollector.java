@@ -29,8 +29,8 @@ public class InfluxMetricCollector extends MetricCollector<
         > {
 
 
-    public InfluxMetricCollector(InfluxMetricCollectorConfig config){
-        super(config);
+    public InfluxMetricCollector(InfluxMetricCollectorConfig config,int id){
+        super(config,id);
     }
 
     public InfluxMetricCollector(InfluxMetricCollectorConfig config,MetricWriter<Point,?,?,?> dbConnector){
@@ -41,7 +41,7 @@ public class InfluxMetricCollector extends MetricCollector<
     public InfluxMetricCollectorResponse response(){
         return InfluxMetricCollectorResponse.builder()
                 .collecting(isRunning())
-                .dbConnection(getDbConnector()==null ? null : getDbConnector().response())
+                .writer(getDbConnector()==null ? null : getDbConnector().response())
                 .time(System.currentTimeMillis())
                 .settings(getConfig().shortVersion())
                 .id(getId())

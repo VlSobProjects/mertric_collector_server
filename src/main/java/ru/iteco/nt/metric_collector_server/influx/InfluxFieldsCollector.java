@@ -121,7 +121,7 @@ public class InfluxFieldsCollector {
                             .set("filed",influxField.shortVersion());
                 } else return Utils.getObjectNode("message","Data InfluxField Check - No error found, No warning.")
                         .set("filed",influxField.shortVersion());
-            } else return Utils.getError("InfluxFieldsCollector.validateData","Influx Filed config Validation Fail",errors.toArray());
+            } else return Utils.getError("InfluxFieldsCollector.validateData","Influx Data config Validation Fail",errors.toArray());
         });
     }
 
@@ -137,7 +137,7 @@ public class InfluxFieldsCollector {
 
     private static boolean validatePath(JsonNode data, InfluxField field,Consumer<JsonNode> error){
         boolean is = !field.hasPath() || VALIDATE_NODE.test(data,field);
-        if(!is) error.accept(Utils.getError("InfluxFieldsCollector.influxFiledDataError","Utils.validatePath fail JsonNode by field path null or empty or contains only nulls",field.shortVersion(),data));
+        if(!is) error.accept(Utils.getError("InfluxFieldsCollector.influxFiledDataError","Utils.validatePath fail JsonNode by field path null or empty or missing or contains only nulls",field.shortVersion(),data));
         return is;
     }
 

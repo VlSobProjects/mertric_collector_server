@@ -38,7 +38,7 @@ public abstract class ApiHolder<R extends DataResponse<S>,S,B extends DataRespon
     }
 
     public Mono<R> errorIfExist(S config){
-        return settings.equals(config) ? responseError(getClass().getSimpleName(),"duplicated configs",settings,config) : null;
+        return settings.equals(config) ? Mono.fromSupplier(()->getBuilder().data(Utils.getError(getClass().getSimpleName(),"duplicated configs",settings,config)).build()) : null;
     }
 
 }

@@ -10,7 +10,6 @@ import java.util.Arrays;
 class UtilsTest {
 
 
-
     @Test
     void getFromJsonNode() {
         ApiCallResponse apiCallResponse1 = ApiCallResponse.factoryError("testErrorSource1","testErrorMessage1").block();

@@ -66,7 +66,7 @@ class InfluxMetricCollectorTest {
                                 ,InfluxField.builder().path(valuePath).name("value").build()
                                 )))
                         .build()
-        );
+        ,0);
     }
 
     @Test
@@ -75,7 +75,7 @@ class InfluxMetricCollectorTest {
         InfluxMetricCollectorConfig collectorConfig =  getTestConfig();
         assertNotNull(source);
         assertNotNull(collectorConfig);
-        InfluxMetricCollector collector = new InfluxMetricCollector(collectorConfig);
+        InfluxMetricCollector collector = new InfluxMetricCollector(collectorConfig,0);
         List<Point> points = collector.getPointFromData(source);
         points.stream()
                 .collect(Collectors.
@@ -102,7 +102,7 @@ class InfluxMetricCollectorTest {
     void validate() throws InterruptedException {
         InfluxMetricCollectorConfig collectorConfig =  getTestConfig();
         assertNotNull(collectorConfig);
-        InfluxMetricCollector collector = new InfluxMetricCollector(collectorConfig);
+        InfluxMetricCollector collector = new InfluxMetricCollector(collectorConfig,0);
         Disposable d = collector.validate().subscribe(l->l.forEach(n->System.out.println(n.toPrettyString())));
         while (!d.isDisposed()){
             TimeUnit.MILLISECONDS.wait(500);
@@ -133,7 +133,7 @@ class InfluxMetricCollectorTest {
         assertNotNull(source);
         InfluxMetricCollectorConfig collectorConfig =  getTestConfig();
         assertNotNull(collectorConfig);
-        InfluxMetricCollector collector = new InfluxMetricCollector(collectorConfig);
+        InfluxMetricCollector collector = new InfluxMetricCollector(collectorConfig,0);
         Disposable d = collector.validateData(source).subscribe(l->l.forEach(n->System.out.println(n.toPrettyString())));
         while (!d.isDisposed()){
             TimeUnit.MILLISECONDS.wait(500);
@@ -147,7 +147,7 @@ class InfluxMetricCollectorTest {
                 "  \"heapMaxSize\": 5726797824,\n" +
                 "  \"heapFreeSize\": 287103288,\n" +
                 "  \"threadsCount\": 11,\n" +
-                "  \"peakThreadsCount\": 11,\n" +
+//                "  \"peakThreadsCount\": 11,\n" +
                 "  \"systemCpuLoad\": 13.911578866085305\n" +
                 "}");
         assertNotNull(source);

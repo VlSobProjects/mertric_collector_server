@@ -70,7 +70,8 @@ public class ApiCallHolder extends DataCollector<ApiCallResponse, ApiCallConfig,
     }
 
     public synchronized ApiCallResponse setCollector(ApiCollectorConfig apiCollectorConfig){
-        if(collectorHolder==null){
+        if(collectorHolder==null || !collectorHolder.getSettings().equals(apiCollectorConfig)){
+            if(collectorHolder!=null) collectorHolder.stop();
             collectorHolder = new ApiCollectorHolder(this, apiCollectorConfig);
         }
         return response();
@@ -92,6 +93,10 @@ public class ApiCallHolder extends DataCollector<ApiCallResponse, ApiCallConfig,
 
     public boolean isCollector(int collectorId){
         return collectorHolder!=null && collectorHolder.getId()==collectorId;
+    }
+
+    public boolean isCollector(){
+        return collectorHolder!=null;
     }
 
     public synchronized Mono<ApiCallResponse> removeCollector(){

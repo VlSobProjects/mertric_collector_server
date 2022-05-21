@@ -13,7 +13,7 @@ import java.util.List;
 public class InfluxMetricCollectorGroupResponse extends DataResponse<InfluxMetricCollectorGroupConfig>  implements ResponseWithMessage<InfluxMetricCollectorGroupResponse>{
 
     private final boolean collecting;
-    private final WriterResponse<?> dbConnection;
+    private final WriterResponse<?> writer;
     private final List<InfluxMetricCollectorResponse> collectors;
     private String message;
 

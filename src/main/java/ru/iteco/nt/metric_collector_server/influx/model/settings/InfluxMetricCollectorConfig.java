@@ -18,8 +18,7 @@ import java.util.Set;
 @Getter
 @EqualsAndHashCode(onlyExplicitlyIncluded = true,callSuper = false)
 public class InfluxMetricCollectorConfig extends MetricConfig {
-    private Integer apiCollectorId;
-    private Integer influxDbId;
+
     @EqualsAndHashCode.Include
     private Set<InfluxField> fields;
     @EqualsAndHashCode.Include
@@ -33,7 +32,7 @@ public class InfluxMetricCollectorConfig extends MetricConfig {
         return ((ObjectNode) Utils.valueToTree(InfluxMetricCollectorConfig
                 .builder()
                 .apiCollectorId(getApiCollectorId())
-                .influxDbId(this.getWriterId())
+                .writerId(this.getWriterId())
                 .measurement(measurement)
                 .path(path)
                 .setTime(setTime)

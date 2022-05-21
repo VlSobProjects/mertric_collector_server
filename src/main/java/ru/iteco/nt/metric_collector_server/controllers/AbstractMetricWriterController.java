@@ -1,6 +1,5 @@
 package ru.iteco.nt.metric_collector_server.controllers;
 
-import com.fasterxml.jackson.databind.JsonNode;
 import io.swagger.v3.oas.annotations.Operation;
 import lombok.Getter;
 import lombok.RequiredArgsConstructor;

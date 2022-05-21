@@ -12,10 +12,8 @@ import ru.iteco.nt.metric_collector_server.collectors.ApiCollectorService;
 import ru.iteco.nt.metric_collector_server.collectors.holders.DataCollector;
 import ru.iteco.nt.metric_collector_server.collectors.model.responses.ApiCallResponse;
 import ru.iteco.nt.metric_collector_server.collectors.model.responses.ApiCollectorResponse;
-import ru.iteco.nt.metric_collector_server.influx.InfluxMetricCollectorGroup;
 import ru.iteco.nt.metric_collector_server.influx.InfluxMetricService;
-import ru.iteco.nt.metric_collector_server.influx.model.settings.InfluxMetricCollectorConfig;
-import ru.iteco.nt.metric_collector_server.influx.model.settings.InfluxMetricCollectorGroupConfig;
+
 
 @Slf4j
 @RequiredArgsConstructor

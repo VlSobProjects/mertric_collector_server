@@ -17,8 +17,6 @@ import ru.iteco.nt.metric_collector_server.utils.Utils;
 @Service
 public class ApiClientService {
 
-//    private final WebClient.Builder builder;
-
     public WebClient getApiClientBuilder(ApiClientConfig apiClientConfig){
         return apiClientConfig.getClient(WebClient.builder());
     }

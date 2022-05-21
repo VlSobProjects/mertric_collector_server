@@ -23,9 +23,6 @@ public class InfluxToFileConnector extends MetricWriter<Point, InfluxToFileConne
 
     public InfluxToFileConnector(InfluxToFileConnectorConfig config) {
         super(config);
-//        Path p = Paths.get(config.getFilePath());
-//        Path file = Files.isDirectory(p) && Files.isDirectory(p) && Files.isWritable(p) ?
-//                p.resolve("influx_points.txt") : null;
         Path file= null;
             try {
                 Path p = Paths.get(config.getFilePath());

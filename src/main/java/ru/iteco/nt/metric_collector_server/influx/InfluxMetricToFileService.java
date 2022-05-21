@@ -23,7 +23,7 @@ public class InfluxMetricToFileService extends AbstractInfluxMetricService<Influ
 
     @Override
     protected InfluxToFileConnector getWriter(InfluxToFileConnectorConfig config) {
-        log.info("InfluxToFileConnectorConfig: {}",config);
+        log.debug("InfluxToFileConnectorConfig: {}",config);
         return new InfluxToFileConnector(config);
     }
 

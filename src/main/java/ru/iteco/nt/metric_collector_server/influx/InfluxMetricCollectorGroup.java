@@ -27,7 +27,7 @@ public class InfluxMetricCollectorGroup extends MetricCollectorGroup<
         return InfluxMetricCollectorGroupResponse.builder()
                 .time(System.currentTimeMillis())
                 .collecting(isRunning())
-                .dbConnection(getDbConnector().response())
+                .writer(getDbConnector().response())
                 .collectors(getCollectors().stream().map(InfluxMetricCollector::response).collect(Collectors.toList()))
                 .id(getId())
                 .settings(getConfig())

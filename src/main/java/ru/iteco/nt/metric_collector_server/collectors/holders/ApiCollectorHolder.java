@@ -24,7 +24,7 @@ public class ApiCollectorHolder extends DataCollector<ApiCollectorResponse, ApiC
     private final Flux<JsonNode> collector;
     private final ApiCallHolder apiCallHolder;
     private Disposable collecting;
-    private final List<MetricCollector<?,?,?,?>> influxCollectors = new CopyOnWriteArrayList<>();
+    private final List<MetricCollector<?,?,?,?>> metricCollectors = new CopyOnWriteArrayList<>();
 
 
     public ApiCollectorHolder(ApiCallHolder apiCallHolder, ApiCollectorConfig apiCollectorConfig) {
@@ -53,7 +53,7 @@ public class ApiCollectorHolder extends DataCollector<ApiCollectorResponse, ApiC
 
 
     public ApiCollectorResponse addAndStartInfluxCollector(MetricCollector<?,?,?,?> influxCollector){
-        influxCollectors.add(influxCollector);
+        metricCollectors.add(influxCollector);
         return startCollecting();
     }
 
@@ -61,7 +61,7 @@ public class ApiCollectorHolder extends DataCollector<ApiCollectorResponse, ApiC
         if(!isCollecting()) {
             collecting = collector.subscribe();
         }
-        influxCollectors.stream().filter(c->!c.isRunning()).forEach(c->c.start(collector));
+        metricCollectors.stream().filter(c->!c.isRunning()).forEach(c->c.start(collector));
         return response();
     }
 
@@ -74,7 +74,7 @@ public class ApiCollectorHolder extends DataCollector<ApiCollectorResponse, ApiC
         if(isCollecting()){
             collecting.dispose();
             collecting = null;
-            influxCollectors.forEach(MetricCollector::stop);
+            metricCollectors.forEach(MetricCollector::stop);
         }
     }
 
@@ -93,7 +93,7 @@ public class ApiCollectorHolder extends DataCollector<ApiCollectorResponse, ApiC
         return (ApiCollectorResponse.ApiCollectorResponseBuilder<ApiCollectorResponse, ?>)
                 ApiCollectorResponse
                         .builder()
-                        .influxCollectors(influxCollectors.stream().map(MetricCollector::response).collect(Collectors.toList()))
+                        .influxCollectors(metricCollectors.stream().map(MetricCollector::response).collect(Collectors.toList()))
                         .collecting(isCollecting())
                 ;
     }

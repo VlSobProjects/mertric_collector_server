@@ -20,17 +20,12 @@ import reactor.core.publisher.Mono;
 import ru.iteco.nt.metric_collector_server.DataResponse;
 import ru.iteco.nt.metric_collector_server.influx.model.responses.ResponseWithMessage;
 
-import java.util.ArrayList;
-import java.util.Arrays;
-import java.util.Collection;
-import java.util.List;
+import java.util.*;
 import java.util.concurrent.atomic.AtomicInteger;
-import java.util.function.Consumer;
-import java.util.function.Function;
-import java.util.function.Supplier;
-import java.util.function.UnaryOperator;
+import java.util.function.*;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
+import java.util.stream.Stream;
 
 @Slf4j
 @UtilityClass
@@ -80,7 +75,7 @@ public class Utils {
     }
 
     private static ArrayNode convertList(List<?> list){
-        return OBJECT_MAPPER.createArrayNode().addAll(list.stream().map(Utils::valueToTree).collect(Collectors.toList()));
+        return OBJECT_MAPPER.createArrayNode().addAll(list.stream().filter(Objects::nonNull).map(Utils::valueToTree).collect(Collectors.toList()));
     }
 
     public String getInfo(ClientResponse clientResponse){
@@ -108,19 +103,15 @@ public class Utils {
     public <T> Mono<T> exchangeToMono(WebClient.RequestHeadersSpec<?> requestHeadersSpec,Class<T> tClass,UnaryOperator<JsonNode> extractor,Consumer<ClientResponse> responseConsumer){
         return exchangeToMono(requestHeadersSpec,responseConsumer).map(j->getFromJsonNode(j,tClass,extractor));
     }
-
     public <T> Mono<T> exchangeMono(WebClient.RequestHeadersSpec<?> requestHeadersSpec,Class<T> tClass,UnaryOperator<JsonNode> extractor){
         return exchangeToMono(requestHeadersSpec,null).map(j->getFromJsonNode(j,tClass,extractor));
     }
     public <T> Mono<List<T>> exchangeMonoList(WebClient.RequestHeadersSpec<?> requestHeadersSpec,Class<T> tClass,UnaryOperator<JsonNode> extractor){
         return exchangeToMono(requestHeadersSpec,null).map(j->getListFromJsonNode(j,tClass,extractor));
     }
-
     public <T> Mono<T> exchangeMono(WebClient.RequestHeadersSpec<?> requestHeadersSpec,Class<T> tClass){
         return exchangeToMono(requestHeadersSpec,null).map(j->getFromJsonNode(j,tClass,null));
     }
-
-
     public <T> Mono<T> exchangeMono(WebClient.RequestHeadersSpec<?> requestHeadersSpec, TypeReference<T> typeReference){
         return exchangeToMono(requestHeadersSpec,null).map(j->getFromJsonNode(j,typeReference,null));
     }
@@ -157,8 +148,6 @@ public class Utils {
         return list;
     }
 
-
-
     public <T> JsonNode valueToTree(T value){
         try {
             return OBJECT_MAPPER.readTree(valueToString(value));
@@ -167,7 +156,6 @@ public class Utils {
             return getError("valueToTree","Fail to covert value",value);
         }
     }
-
 
     public <T> String valueToString(T t){
         if(t==null)return null;
@@ -267,7 +255,7 @@ public class Utils {
 
     public boolean validatePath(JsonNode jsonNode,String expression){
         JsonNode node = getFromJsonNode(jsonNode, expression);
-        if(node == null || node.isNull() || (node.isValueNode() && node.asText().trim().isEmpty())) return false;
+        if(node == null || node.isNull() || node.isMissingNode() || (node.isValueNode() && node.asText().trim().isEmpty())) return false;
         if(node.isContainerNode() && node.isEmpty()) return false;
         return !node.isContainerNode() || IntStream.range(0, node.size()).map(i -> node.get(i).isNull() ? 0 : 1).sum() != 0;
     }
@@ -303,7 +291,6 @@ public class Utils {
         }
     }
 
-
     private String getReduceSkipPoints(List<Function<Point.Builder,Point.Builder>> l1, List<Function<Point.Builder,Point.Builder>> l2){
         List<Function<Point.Builder,Point.Builder>> s = l1.size()>l2.size()?l2:l1;
         List<Function<Point.Builder,Point.Builder>> l = l1==s?l2:l1;
@@ -323,6 +310,45 @@ public class Utils {
             r.dataArray(objects);
             return r;
         });
+    }
+
+    public <R extends DataResponse<?>> Mono<R> modifyData(Mono<R> response,Consumer<JsonNode> transformer){
+        return response.map(r->{
+            r.modifyData(transformer);
+            return r;
+        });
+    }
+
+    public <R extends DataResponse<?>> Mono<R> modifyAndSetData(Mono<R> response,UnaryOperator<JsonNode> transformer){
+        return response.map(r->{
+            r.modifyAndSetData(transformer);
+            return r;
+        });
+    }
+
+    public void collectData(Collection<JsonNode> list,Predicate<JsonNode> filter ,Object...objects){
+        if(objects.length==1){
+            if(objects[0] instanceof Collection){
+                ((Collection<?>)objects[0]).forEach(o->collectData(list,filter,o));
+            } else if(objects[0] instanceof ArrayNode){
+                ((ArrayNode)objects[0]).forEach(j->collectData(list,filter,j));
+            } else {
+                JsonNode n = objects[0] instanceof JsonNode ? (JsonNode)objects[0] :  Utils.valueToTree(objects[0]);
+                if(filter.test(n)){
+                    list.add(n);
+                }
+            }
+        } else Stream.of(objects).forEach(o->collectData(list,filter,o));
+    }
+
+    public void collectData(Collection<JsonNode> list,Object...objects){
+        collectData(list,j->true,objects);
+    }
+
+    public List<JsonNode> collectDataToList(Predicate<JsonNode> filter, Object...objects){
+        List<JsonNode> list = new ArrayList<>();
+        collectData(list,filter,objects);
+        return list;
     }
 
 }

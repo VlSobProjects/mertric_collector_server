@@ -39,20 +39,18 @@ public abstract class MetricService<
     private final Class<G> collectorGroupClass;
     private final Class<C> collectorClass;
 
-
     protected MetricService(ApiCollectorService apiCollectorService, Class<W> writerClass, Class<G> collectorGroupClass, Class<C> collectorClass) {
         this.apiCollectorService = apiCollectorService;
         this.writerClass = writerClass;
         this.collectorGroupClass = collectorGroupClass;
         this.collectorClass = collectorClass;
     }
-
     protected abstract Mono<RW> getErrorWriter(String message, Object...objects);
     protected abstract Mono<RC> getErrorCollector(String message, Object...objects);
     protected abstract Mono<RG> getErrorGroupCollector(String message, Object...objects);
     protected abstract W getWriter(SW config);
     protected abstract C getCollector(SC config,MetricWriter<P,?,?,?> writer);
-    protected abstract C getCollector(SC config);
+    protected abstract C getCollector(SC config,int id);
     protected abstract G getGroupCollector(SG config,MetricWriter<P,?,?,?> writer);
 
     public static Mono<List<WriterResponse<?>>> getAllWriters(){
@@ -67,7 +65,6 @@ public abstract class MetricService<
             METRIC_WRITER_MAP.values().forEach(MetricWriter::stop);
         });
     }
-
 
     public Mono<RW> addConnector(SW config){
         return isConnectorExist(config) ? getErrorWriter("Config exist in METRIC_WRITER_MAP",config,getResponseByConfig(config)) :
@@ -112,11 +109,11 @@ public abstract class MetricService<
         G group = getCollectorGroupFromMap(groupId).orElse(null);
         if(group==null) return getErrorGroupCollector("MetricCollectorGroup not found by id: "+groupId,config);
         ApiCallHolder holder = apiCollectorService.getApiCollectorById(group.getConfig().getApiCollectorId()).map(ApiCollectorHolder::getApiCallHolder).orElse(null);
-        if(holder==null) return Utils.setMessageAndData(group.responseMono(),"Error unexpected Fail to get ApiCall Holder",config);
-        C collector = getCollector(config);
+        if(holder==null) return Utils.setData(group.responseMono(),Utils.getError(getClass().getSimpleName(),"Error unexpected Fail to get ApiCall Holder",config));
+        C collector = getCollector(config,group.getCollectorId());
         UnaryOperator<Mono<RG>> function = rg->{
             if(group.getCollectors().add(collector)) return Utils.setMessageAndData(group.responseMono(),"Collector added to group");
-            else return Utils.setMessageAndData(group.responseMono(),"Error: Collector is duplicated",config);
+            else return Utils.setData(group.responseMono(),Utils.getError(getClass().getSimpleName(),"Error: Duplicated config collector",config));
         };
         return collector.validateAndSet(group.responseMono(),holder.lastApiCall(),function);
     }
@@ -157,6 +154,13 @@ public abstract class MetricService<
     public Mono<RC> validateCollector(int collectorId){
         return getCollectorFromMap(collectorId).map(c->getAndValidateCollectorHolder(c.responseMono(),c,r->r))
                 .orElse(getErrorCollector("Metric Collector not found by id: "+collectorId));
+    }
+
+    public static Mono<Void> stopAndClearAll(){
+        return stopAll().then(Mono.fromRunnable(()->{
+            METRIC_COLLECTOR_MAP.clear();
+            METRIC_WRITER_MAP.clear();
+        }));
     }
 
     private boolean isConnectorExist(SW config){
@@ -202,10 +206,9 @@ public abstract class MetricService<
 
     private static  <R extends DataResponse<?> & ResponseWithMessage<R>,T extends MetricConfig,W extends MetricWriter<?,?,?,?>> Mono<R> addToCollectorMap(Mono<R> response, T config, W connector, BiFunction<T,W, MetricCollector<?,?,?,?>> creator, AtomicReference<MetricCollector<?,?,?,?>> collectorRef){
         if(METRIC_COLLECTOR_MAP.values().stream().anyMatch(c->c.getConfig().equals(config)))
-            return Utils.setMessageAndData(response
-                    ,"Error: Duplicated config collector"
-                    ,config
-                    ,METRIC_COLLECTOR_MAP.values().stream().filter(c->c.getConfig().equals(config)).findFirst().orElse(null));
+            return Utils.setData(response
+                    ,Utils.getError("MetricService","Error: Duplicated config collector",config)
+            );
         else {
             MetricCollector<?,?,?,?> collector = creator.apply(config,connector);
             METRIC_COLLECTOR_MAP.put(collector.getId(),collector);
@@ -242,8 +245,5 @@ public abstract class MetricService<
                         ,"Metric Collector Started")
         );
     }
-
-
-
 
 }

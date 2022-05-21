@@ -19,9 +19,8 @@ import java.util.List;
 @RequestMapping("/admin")
 public class AdminController {
 
-    private final ApiCollectorService apiCollectorService;
 
-    @Operation(summary = "stop all metric writes and collectors")
+    @Operation(summary = "stop all metric writes and metric collectors")
     @RequestMapping(method = RequestMethod.GET,value = "/stopAllMetric")
     private Mono<Void> stopAllMetricAll(){
         return MetricService.stopAll();
@@ -39,6 +38,17 @@ public class AdminController {
         return MetricService.getAllCollectors();
     }
 
+    @Operation(summary = "stop and delete all metric writes and metric collectors")
+    @RequestMapping(method = RequestMethod.DELETE,value = "/deleteAllMetric")
+    private Mono<Void> deleteAllMetricAnControllers(){
+        return MetricService.stopAndClearAll();
+    }
+
+    @Operation(summary = "stop and delete all api clinets, api calls, api collectors, metric writes and metric collectors")
+    @RequestMapping(method = RequestMethod.DELETE,value = "/deleteAll")
+    private Mono<Void> clearAll(){
+        return deleteAllMetricAnControllers().then(ApiCollectorService.deleteAll());
+    }
 
 
 }

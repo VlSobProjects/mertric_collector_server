@@ -8,8 +8,6 @@ import ru.iteco.nt.metric_collector_server.influx.model.responses.InfluxDbConnec
 import ru.iteco.nt.metric_collector_server.influx.model.settings.InfluxDBConnectorConfig;
 
 
-
-
 @Service
 public class InfluxMetricService extends AbstractInfluxMetricService<InfluxDBConnectorConfig,InfluxDbConnectorResponse,InfluxDbConnector> {
 

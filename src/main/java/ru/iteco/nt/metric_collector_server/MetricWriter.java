@@ -27,10 +27,9 @@ public abstract class MetricWriter<T,S extends WriterConfig,R extends WriterResp
     private int maxDataSize;
     private int maxQueueSize;
 
-
     protected MetricWriter(S config) {
         this.config = config;
-        id= ID_SOURCE.get();
+        id= ID_SOURCE.incrementAndGet();
         writing = startWriter();
     }
 
@@ -111,6 +110,5 @@ public abstract class MetricWriter<T,S extends WriterConfig,R extends WriterResp
         else if(config==null || this.config==null) return false;
         return config.equals(this.config);
     }
-
 
 }

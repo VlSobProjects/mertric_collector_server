@@ -46,8 +46,8 @@ public abstract class AbstractInfluxMetricService<SW extends WriterConfig
     }
 
     @Override
-    protected InfluxMetricCollector getCollector(InfluxMetricCollectorConfig config) {
-        return new InfluxMetricCollector(config);
+    protected InfluxMetricCollector getCollector(InfluxMetricCollectorConfig config,int id) {
+        return new InfluxMetricCollector(config,id);
     }
 
     @Override

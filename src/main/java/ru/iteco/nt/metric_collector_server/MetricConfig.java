@@ -1,9 +1,6 @@
 package ru.iteco.nt.metric_collector_server;
 
-import lombok.AllArgsConstructor;
-import lombok.Getter;
-import lombok.NoArgsConstructor;
-import lombok.Setter;
+import lombok.*;
 import lombok.experimental.SuperBuilder;
 
 @NoArgsConstructor
@@ -11,6 +8,7 @@ import lombok.experimental.SuperBuilder;
 @SuperBuilder
 @Setter
 @Getter
+@EqualsAndHashCode
 public abstract class MetricConfig {
     private Integer apiCollectorId;
     private Integer writerId;

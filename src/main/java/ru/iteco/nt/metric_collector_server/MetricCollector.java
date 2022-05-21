@@ -3,6 +3,7 @@ package ru.iteco.nt.metric_collector_server;
 import com.fasterxml.jackson.databind.JsonNode;
 import lombok.EqualsAndHashCode;
 import lombok.Getter;
+import lombok.extern.slf4j.Slf4j;
 import reactor.core.Disposable;
 import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
@@ -14,7 +15,10 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.function.UnaryOperator;
+import java.util.stream.Collectors;
 
+
+@Slf4j
 @EqualsAndHashCode(onlyExplicitlyIncluded = true)
 public abstract class MetricCollector<P,S extends MetricConfig,C extends MetricWriter<P,?,?,?>,T extends DataResponse<?> & ResponseWithMessage<T>> {
 
@@ -32,18 +36,16 @@ public abstract class MetricCollector<P,S extends MetricConfig,C extends MetricW
     protected MetricCollector(S config, C dbConnector) {
         this.config = config;
         this.dbConnector = dbConnector;
-        id = ID_SOURCE.get();
+        id = ID_SOURCE.incrementAndGet();
     }
 
-    protected MetricCollector(S config){
+    protected MetricCollector(S config,int id){
         this.config = config;
-        id = -1;
+        this.id = id;
         dbConnector = null;
     }
 
     public abstract T response();
-
-    public abstract boolean isValidationFail(List<JsonNode> validationResult);
 
     public Mono<T> responseMono(){
         return Mono.fromSupplier(this::response);
@@ -91,31 +93,21 @@ public abstract class MetricCollector<P,S extends MetricConfig,C extends MetricW
                 .then(getWithMessage("stopped")) : getWithMessage("already stopped");
     }
 
-    public Mono<T> responseWithValidate(){
-        return validate().flatMap(l->responseMono().map(r-> {
-            r.dataArray(l);
-            return r;
-        }));
-    }
-
-    public Mono<T> responseWithValidate(JsonNode data){
-        return validateData(data).flatMap(l->responseMono().map(r-> {
-            r.dataArray(l);
-            return r;
-        }));
-    }
-
     public <R extends DataResponse<?> & ResponseWithMessage<R>> Mono<R> validateAndSet(Mono<R> response, Mono<JsonNode> data, UnaryOperator<Mono<R>> addIfNotFail){
         return validate().flatMap(l->{
-            if(isValidationFail(l)) return Utils.setMessageAndData(response,"Collector Validation Fail",config,l);
+            if(isValidationFail(l)) return Utils.setMessageAndData(response,"Collector Filed Validation Fail",leaveOnlyAndSetErrorsData(l));
             else return data.flatMap(j->{
-                if(j==null || j.isEmpty()) return addIfNotFail.apply(Utils.setMessageAndData(response,"Warn: data from ApiCall is null or empty"));
+                if(j==null || j.isEmpty()) return addIfNotFail.apply(Utils.setMessageAndData(response,"Warn Data: data from ApiCall is null or empty"));
                 else return validateData(j).flatMap(l2->{
-                    if(isValidationFail(l2)) return Utils.setMessageAndData(response,"Collector Data Validation Fail",config,l2);
+                    if(isValidationFail(l2)) return Utils.setMessageAndData(response,"Collector Data Validation Fail",leaveOnlyAndSetErrorsData(l2));
                     else return addIfNotFail.apply(response);
                 });
             });
         });
+    }
+
+    protected List<JsonNode> leaveOnlyAndSetErrorsData(List<JsonNode> validationResult){
+        return Utils.collectDataToList(j->true, validationResult.stream().filter(j->j.has("error")).map(j->j.get("error").get("data")).collect(Collectors.toList()));
     }
 
     public Mono<T> getWithMessage(String message){
@@ -130,7 +122,8 @@ public abstract class MetricCollector<P,S extends MetricConfig,C extends MetricW
 
     public abstract Mono<List<JsonNode>> validateData(JsonNode data);
 
-
-
+    public boolean isValidationFail(List<JsonNode> validationResult) {
+        return validationResult.stream().anyMatch(j->j.has("error"));
+    }
 
 }
