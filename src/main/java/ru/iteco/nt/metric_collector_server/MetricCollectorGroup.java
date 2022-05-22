@@ -75,7 +75,7 @@ public abstract class MetricCollectorGroup<P,S extends MetricConfig,R extends Da
 
     @Override
     protected <R1 extends DataResponse<?> & ResponseWithMessage<R1>> Mono<R1> validateAndDo(Mono<R1> response, Mono<JsonNode> data, boolean doOnError, UnaryOperator<Mono<R1>> doOn) {
-        return response;
+        return response.flatMap(r->(r.isFail() &&  doOnError) || (!r.isFail() && !doOnError) ? doOn.apply(Mono.just(r)) : Mono.just(r));
     }
 
     @Override

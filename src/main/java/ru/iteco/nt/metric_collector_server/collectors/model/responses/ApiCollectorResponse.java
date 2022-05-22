@@ -14,7 +14,7 @@ import java.util.List;
 @SuperBuilder
 public class ApiCollectorResponse extends DataResponse<ApiCollectorConfig> implements ResponseWithMessage<ApiCollectorResponse> {
     private final boolean collecting;
-    private final List<DataResponse<?>> influxCollectors;
+    private final List<DataResponse<?>> metricCollectors;
     private String message;
 
     public static Mono<ApiCollectorResponse> factoryError(String source, String message, Object ...objects){

@@ -15,18 +15,25 @@ public abstract class DataCollector<R extends DataResponse<S>,S,B extends DataRe
     private long time;
     private boolean fail;
     @Setter(AccessLevel.PROTECTED)
-    private Runnable startOnError;
+    private Runnable doOnError;
+    @Setter(AccessLevel.PROTECTED)
+    private Runnable doAfterError;
 
     protected DataCollector(S settings, int id) {
         super(settings, id);
     }
 
+
     public synchronized void setData(JsonNode jsonNode){
+        boolean lasFail = fail;
         data = jsonNode;
         time = System.currentTimeMillis();
         fail = jsonNode.has("error");
-        if(fail && startOnError!=null)
-            startOnError.run();
+        if(fail && !lasFail && doOnError !=null)
+            doOnError.run();
+        if(!fail && lasFail && doAfterError !=null){
+            doAfterError.run();
+        }
 
     }
 
@@ -42,6 +49,10 @@ public abstract class DataCollector<R extends DataResponse<S>,S,B extends DataRe
 
     public static ApiData getErrorData(String source,String message,Object ... objects){
         return new ApiData(Utils.getError(source, message, objects),System.currentTimeMillis(),true);
+    }
+
+    public void startOnError(){
+        if(doOnError !=null) doOnError.run();
     }
 
     @Getter

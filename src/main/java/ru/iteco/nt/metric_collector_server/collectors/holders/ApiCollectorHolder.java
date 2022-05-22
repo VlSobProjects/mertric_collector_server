@@ -47,25 +47,28 @@ public class ApiCollectorHolder extends DataCollector<ApiCollectorResponse, ApiC
                     log.debug("error: {}",e.getError());
                     apiCallHolder.setData(e.getError());
                 }).share();
-
     }
 
-
-
-    public ApiCollectorResponse addAndStartInfluxCollector(MetricCollector<?,?,?,?> influxCollector){
-        metricCollectors.add(influxCollector);
-        return startCollecting();
+    public Mono<ApiCollectorResponse> addAndStarMetricCollector(MetricCollector<?,?,?,?> metricCollector){
+        return Mono.fromSupplier(()->{
+            metricCollectors.add(metricCollector);
+            return startCollecting();
+        });
     }
 
-    public synchronized ApiCollectorResponse startCollecting(){
+    public ApiCollectorResponse startCollecting(){
+        start();
+        return response();
+    }
+
+    public synchronized void start(){
         if(!isCollecting()) {
             collecting = collector.subscribe();
         }
         metricCollectors.stream().filter(c->!c.isRunning()).forEach(c->c.start(collector));
-        return response();
     }
 
-    public synchronized ApiCollectorResponse stopCollecting(){
+    public ApiCollectorResponse stopCollecting(){
         stop();
         return response();
     }
@@ -93,7 +96,7 @@ public class ApiCollectorHolder extends DataCollector<ApiCollectorResponse, ApiC
         return (ApiCollectorResponse.ApiCollectorResponseBuilder<ApiCollectorResponse, ?>)
                 ApiCollectorResponse
                         .builder()
-                        .influxCollectors(metricCollectors.stream().map(MetricCollector::response).collect(Collectors.toList()))
+                        .metricCollectors(metricCollectors.stream().map(MetricCollector::response).collect(Collectors.toList()))
                         .collecting(isCollecting())
                 ;
     }
