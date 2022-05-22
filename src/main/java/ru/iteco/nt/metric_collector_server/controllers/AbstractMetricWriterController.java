@@ -74,13 +74,13 @@ public abstract class AbstractMetricWriterController <
     }
 
     @Operation(summary = "validate collector single collector by id")
-    @PostMapping("/collector/validate/{collectorId}")
+    @GetMapping("/collector/validate/{collectorId}")
     private Mono<RC> validateCollector(@PathVariable int collectorId){
         return metricService.validateCollector(collectorId);
     }
 
     @Operation(summary = "validate collector group by id")
-    @PostMapping("/collector/validate/{collectorGroupId}")
+    @GetMapping("/collector/group/validate/{collectorGroupId}")
     private Mono<RG> validateCollectorGroup(@PathVariable int collectorGroupId){
         return metricService.validateGroup(collectorGroupId);
     }

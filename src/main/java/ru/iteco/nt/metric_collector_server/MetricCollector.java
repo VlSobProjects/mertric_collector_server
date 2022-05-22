@@ -94,16 +94,33 @@ public abstract class MetricCollector<P,S extends MetricConfig,C extends MetricW
     }
 
     public <R extends DataResponse<?> & ResponseWithMessage<R>> Mono<R> validateAndSet(Mono<R> response, Mono<JsonNode> data, UnaryOperator<Mono<R>> addIfNotFail){
+        return validateAndDo(response,data,false,addIfNotFail);
+    }
+
+    public <R extends DataResponse<?> & ResponseWithMessage<R>> Mono<R> validateAndRemove(Mono<R> response, Mono<JsonNode> data, UnaryOperator<Mono<R>> removeIfFail){
+        return validateAndDo(response,data,true,removeIfFail);
+    }
+
+    protected <R extends DataResponse<?> & ResponseWithMessage<R>> Mono<R> validateAndDo(Mono<R> response, Mono<JsonNode> data, boolean doOnError , UnaryOperator<Mono<R>> doOn){
         return validate().flatMap(l->{
-            if(isValidationFail(l)) return Utils.setMessageAndData(response,"Collector Filed Validation Fail",leaveOnlyAndSetErrorsData(l));
-            else return data.flatMap(j->{
-                if(j==null || j.isEmpty()) return addIfNotFail.apply(Utils.setMessageAndData(response,"Warn Data: data from ApiCall is null or empty"));
-                else return validateData(j).flatMap(l2->{
-                    if(isValidationFail(l2)) return Utils.setMessageAndData(response,"Collector Data Validation Fail",leaveOnlyAndSetErrorsData(l2));
-                    else return addIfNotFail.apply(response);
+            if(isValidationFail(l)){
+                Mono<R> r = Utils.setMessageAndData(response,"Collector Filed Validation Fail",leaveOnlyAndSetErrorsData(l));
+                return doOnError ? doOn.apply(r) : r;
+            } else return data.flatMap(j->{
+                if((j==null || j.isEmpty() || j.has("error"))){
+                    return doOnError ? failToCheckWarn(response,j) : doOn.apply(failToCheckWarn(response,j));
+                } else return validateData(j).flatMap(l2->{
+                    Mono<R> r = isValidationFail(l2) ?
+                            Utils.setMessageAndData(response,"Collector Data Validation Fail",leaveOnlyAndSetErrorsData(l2)) :
+                            response;
+                    return (doOnError && isValidationFail(l2)) || (!doOnError && !isValidationFail(l2)) ? doOn.apply(r) : r;
                 });
             });
         });
+    }
+
+    protected <R extends DataResponse<?> & ResponseWithMessage<R>> Mono<R> failToCheckWarn(Mono<R> response,JsonNode error){
+        return Utils.setMessageAndData(response,"Warn: Fail to check Data",Utils.getWarn(getClass().getSimpleName(),"Warn Data: data from ApiCall is null or empty or error",error,response()));
     }
 
     protected List<JsonNode> leaveOnlyAndSetErrorsData(List<JsonNode> validationResult){

@@ -1,10 +1,10 @@
 package ru.iteco.nt.metric_collector_server;
 
 
+import com.fasterxml.jackson.databind.JsonNode;
 import lombok.extern.slf4j.Slf4j;
 import reactor.core.publisher.Mono;
 import ru.iteco.nt.metric_collector_server.collectors.ApiCollectorService;
-import ru.iteco.nt.metric_collector_server.collectors.holders.ApiCallHolder;
 import ru.iteco.nt.metric_collector_server.collectors.holders.ApiCollectorHolder;
 import ru.iteco.nt.metric_collector_server.collectors.model.responses.ApiCollectorResponse;
 import ru.iteco.nt.metric_collector_server.influx.model.responses.*;
@@ -106,16 +106,11 @@ public abstract class MetricService<
     }
 
     public Mono<RG> addCollectorToGroup(int groupId, SC config){
-        G group = getCollectorGroupFromMap(groupId).orElse(null);
-        if(group==null) return getErrorGroupCollector("MetricCollectorGroup not found by id: "+groupId,config);
-        ApiCallHolder holder = apiCollectorService.getApiCollectorById(group.getConfig().getApiCollectorId()).map(ApiCollectorHolder::getApiCallHolder).orElse(null);
-        if(holder==null) return Utils.setData(group.responseMono(),Utils.getError(getClass().getSimpleName(),"Error unexpected Fail to get ApiCall Holder",config));
-        C collector = getCollector(config,group.getCollectorId());
-        UnaryOperator<Mono<RG>> function = rg->{
-            if(group.getCollectors().add(collector)) return Utils.setMessageAndData(group.responseMono(),"Collector added to group");
-            else return Utils.setData(group.responseMono(),Utils.getError(getClass().getSimpleName(),"Error: Duplicated config collector",config));
-        };
-        return collector.validateAndSet(group.responseMono(),holder.lastApiCall(),function);
+        return  getCollectorGroupFromMap(groupId).map(c->{
+            ApiCollectorHolder holder = apiCollectorService.getApiCollectorById(c.getConfig().getApiCollectorId()).orElse(null);
+            if(holder==null) return Utils.setMessageAndData(c.responseMono(),"Unexpected ApiCollectorHolder not found in apiCollectorService",c.getConfig());
+            else return c.validateAndAdd(holder.getApiCallHolder().lastApiCall(),config,conf->getCollector(conf,c.getCollectorId()));
+        }).orElse(getErrorGroupCollector("Metric Collector Group not found by id: "+groupId));
     }
 
     public Mono<RG> stopGroupById(int groupId){
@@ -147,13 +142,23 @@ public abstract class MetricService<
     }
 
     public Mono<RG> validateGroup(int groupId){
-        return getCollectorGroupFromMap(groupId).map(c->getAndValidateCollectorHolder(c.responseMono(),c,r->r))
-                .orElse(getErrorGroupCollector("Metric Collector Group not found by id: "+groupId));
+        return getCollectorGroupFromMap(groupId)
+                .map(c->getCollectorHolderOrError(
+                        c.responseMono()
+                        ,c.getConfig().getApiCollectorId()
+                        ,h->c.validateAndRemove(h.getApiCallHolder().lastApiCall()))
+                ).orElse(getErrorGroupCollector("Metric Collector Group not found by id: "+groupId));
     }
 
     public Mono<RC> validateCollector(int collectorId){
-        return getCollectorFromMap(collectorId).map(c->getAndValidateCollectorHolder(c.responseMono(),c,r->r))
-                .orElse(getErrorCollector("Metric Collector not found by id: "+collectorId));
+        UnaryOperator<Mono<RC>> removeIfError = rc->{
+            METRIC_COLLECTOR_MAP.remove(collectorId);
+            return Utils.setMessageAndData(rc,"Validation Fail - Collector removed");
+        };
+        return getCollectorFromMap(collectorId)
+                .map(c->getCollectorHolderOrError(c.responseMono(),c.getConfig().getApiCollectorId(),h->
+                    c.validateAndRemove(c.responseMono(),h.getApiCallHolder().lastApiCall(),removeIfError)
+                )).orElse(getErrorCollector("Metric Collector not found by id: "+collectorId));
     }
 
     public static Mono<Void> stopAndClearAll(){
@@ -217,12 +222,10 @@ public abstract class MetricService<
         }
     }
 
-    private <R extends DataResponse<?> & ResponseWithMessage<R>,T extends MetricCollector<?,?,?,?>> Mono<R> getAndValidateCollectorHolder(Mono<R> response,T collector,UnaryOperator<Mono<R>> function){
-        ApiCollectorHolder holder = apiCollectorService.getApiCollectorById(collector.getConfig().getApiCollectorId()).orElse(null);
-        if(holder==null) return Utils.setMessageAndData(response,"Unexpected ApiCollectorHolder not found in apiCollectorService",collector.getConfig());
-        else {
-            return collector.validateAndSet(response,holder.getApiCallHolder().lastApiCall(),function);
-        }
+    private <R extends DataResponse<?> & ResponseWithMessage<R>> Mono<R> getCollectorHolderOrError(Mono<R> response, int apiCollectorId, Function<ApiCollectorHolder,Mono<R>> function){
+        ApiCollectorHolder holder = apiCollectorService.getApiCollectorById(apiCollectorId).orElse(null);
+        if(holder==null) return Utils.setMessageAndData(response,"Unexpected ApiCollectorHolder not found in apiCollectorService");
+        else return function.apply(holder);
     }
 
     private <T extends MetricConfig> Mono<ApiCollectorResponse> addCollector(T config, BiFunction<T,W, MetricCollector<?,?,?,?>> creator){
@@ -244,6 +247,10 @@ public abstract class MetricService<
                 ,r->Utils.setMessageAndData(Mono.fromSupplier(()->collectorHolder.addAndStartInfluxCollector(ref.get()))
                         ,"Metric Collector Started")
         );
+    }
+
+    public static Mono<JsonNode> getCollectorById(int collectorId){
+        return Optional.ofNullable(METRIC_COLLECTOR_MAP.get(collectorId)).map(c->c.responseMono().map(Utils::valueToTree)).orElseGet(()-> Mono.just(Utils.getError("MetricService","Metric collector not found by id: "+collectorId)));
     }
 
 }

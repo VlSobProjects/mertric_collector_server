@@ -12,6 +12,7 @@ import lombok.experimental.UtilityClass;
 import lombok.extern.slf4j.Slf4j;
 import org.influxdb.dto.Point;
 import org.springframework.http.HttpStatus;
+import org.springframework.web.reactive.function.BodyExtractors;
 import org.springframework.web.reactive.function.client.ClientResponse;
 import org.springframework.web.reactive.function.client.ExchangeFilterFunction;
 import org.springframework.web.reactive.function.client.WebClient;
@@ -91,10 +92,10 @@ public class Utils {
     public ExchangeFilterFunction logResponse(){
         return ExchangeFilterFunction.ofResponseProcessor(clientResponse -> {
             if(clientResponse.statusCode().is5xxServerError()){
-                log.error("Server error!: {}",clientResponse.statusCode());
+                log.debug("Server error!: {}",clientResponse.statusCode());
             }
             if(log.isDebugEnabled()) {
-                log.debug(getInfo(clientResponse));
+                log.trace(getInfo(clientResponse));
             }
             return Mono.just(clientResponse);
         });
@@ -118,7 +119,6 @@ public class Utils {
     public <T> Mono<T> exchangeMono(WebClient.RequestHeadersSpec<?> requestHeadersSpec, TypeReference<T> typeReference,UnaryOperator<JsonNode> extractor){
         return exchangeToMono(requestHeadersSpec,null).map(j->getFromJsonNode(j,typeReference,extractor));
     }
-
     public Mono<JsonNode> exchangeMono(WebClient.RequestHeadersSpec<?> requestHeadersSpec){
         return exchangeToMono(requestHeadersSpec,null);
     }
@@ -169,9 +169,17 @@ public class Utils {
 
     public JsonNode getError(String source,String message,Object ... objects){
         return getError(ErrorJson.builder()
-                .data(convertList(Arrays.asList(objects)))
+                .data(convert(objects))
                 .errorSource(source)
                 .errorMessage(message)
+                .build());
+    }
+
+    public JsonNode getWarn(String source,String message,Object ... objects){
+        return getWarn(WarnJson.builder()
+                .warSource(source)
+                .warMessage(message)
+                .data(convert(objects))
                 .build());
     }
 
@@ -236,6 +244,10 @@ public class Utils {
 
     public JsonNode getError(ErrorJson errorJson){
         return getObjectNode("error",valueToTree(errorJson));
+    }
+
+    public JsonNode getWarn(WarnJson errorJson){
+        return getObjectNode("warn",valueToTree(errorJson));
     }
 
     public Mono<JsonNode> getWithOnHttpErrorResponseSpec(String source, WebClient.ResponseSpec responseSpec){
@@ -326,6 +338,13 @@ public class Utils {
         });
     }
 
+    public <R extends DataResponse<?>> Mono<R> reduceResponseData(Mono<R> response,Mono<? extends DataResponse<?>> response2){
+        return response2.flatMap(r2->response.map(r->{
+            r.addDataFromResponse(r2);
+            return r;
+        }));
+    }
+
     public void collectData(Collection<JsonNode> list,Predicate<JsonNode> filter ,Object...objects){
         if(objects.length==1){
             if(objects[0] instanceof Collection){
@@ -349,6 +368,16 @@ public class Utils {
         List<JsonNode> list = new ArrayList<>();
         collectData(list,filter,objects);
         return list;
+    }
+
+    private JsonNode convert(Predicate<JsonNode> filter,Object...objects){
+        List<JsonNode> list = collectDataToList(filter,objects);
+        if(list.size()==1) return list.get(0);
+        return convertList(list);
+    }
+
+    private JsonNode convert(Object...objects){
+        return convert(j->true,objects);
     }
 
 }

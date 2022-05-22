@@ -1,5 +1,6 @@
 package ru.iteco.nt.metric_collector_server.controllers;
 
+import com.fasterxml.jackson.databind.JsonNode;
 import io.swagger.v3.oas.annotations.Operation;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -44,11 +45,15 @@ public class AdminController {
         return MetricService.stopAndClearAll();
     }
 
-    @Operation(summary = "stop and delete all api clinets, api calls, api collectors, metric writes and metric collectors")
+    @Operation(summary = "stop and delete all api clients, api calls, api collectors, metric writes and metric collectors")
     @RequestMapping(method = RequestMethod.DELETE,value = "/deleteAll")
     private Mono<Void> clearAll(){
         return deleteAllMetricAnControllers().then(ApiCollectorService.deleteAll());
     }
 
-
+    @Operation(summary = "get Collector by Id")
+    @GetMapping ("/collector/{collectorId}")
+    private Mono<JsonNode> getCollectorById(@PathVariable int collectorId){
+        return MetricService.getCollectorById(collectorId);
+    }
 }

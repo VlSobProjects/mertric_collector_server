@@ -8,8 +8,9 @@ import lombok.experimental.SuperBuilder;
 import ru.iteco.nt.metric_collector_server.MetricConfig;
 import ru.iteco.nt.metric_collector_server.utils.Utils;
 
-import java.util.List;
+import java.util.Objects;
 import java.util.Set;
+import java.util.stream.Collectors;
 
 @NoArgsConstructor
 @AllArgsConstructor
@@ -37,7 +38,10 @@ public class InfluxMetricCollectorConfig extends MetricConfig {
                 .path(path)
                 .setTime(setTime)
                 .build()
-        )).put("fields",fields.size());
+        )).put("fields", isNoFields()? fields.size(): 0).put("fields",isNoFields()? "no" : fields.stream().map(InfluxField::getPath).filter(Objects::nonNull).collect(Collectors.joining(", ")));
+    }
+    private boolean isNoFields(){
+        return fields==null || fields.size()==0;
     }
 
 }

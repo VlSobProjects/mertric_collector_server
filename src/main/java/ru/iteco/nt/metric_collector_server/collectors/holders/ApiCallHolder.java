@@ -22,13 +22,10 @@ public class ApiCallHolder extends DataCollector<ApiCallResponse, ApiCallConfig,
     private final Retry retry;
     private Disposable checkApiCall;
 
-
-
-
     public ApiCallHolder(ApiClientHolder apiClientHolder, ApiCallConfig apiCallConfig){
         super(apiCallConfig,isSource.incrementAndGet());
         request = apiCallConfig.getMethod().trim().equalsIgnoreCase("get") ?
-                Utils.getWithOnHttpErrorResponseSpec("api call",apiClientHolder.getWebClient().get().uri(apiCallConfig.getUri()).retrieve()) :
+                Utils.getWithOnHttpErrorResponseSpec("api call",apiClientHolder.getWebClient().get().uri(apiCallConfig.getUri()).retrieve()).doOnNext(this::setData) :
                 Mono.just(Utils.getError("ApiCallHolder",String.format("Method: %s not implemented", apiCallConfig.getMethod())))
         ;
         retry = apiCallConfig.getRetry()>0 && apiCallConfig.getRetryPeriod()>0 ?
@@ -45,8 +42,6 @@ public class ApiCallHolder extends DataCollector<ApiCallResponse, ApiCallConfig,
             );
             getStartOnError().run();
         }
-
-
     }
 
     private Disposable setCheckApiCall(long seconds,Mono<JsonNode> request){
@@ -85,10 +80,7 @@ public class ApiCallHolder extends DataCollector<ApiCallResponse, ApiCallConfig,
     }
 
     public Mono<ApiCallResponse> getApiResponse(){
-        return request.map(j->{
-            setData(j);
-            return response();
-        });
+        return request.then(monoResponse());
     }
 
     public boolean isCollector(int collectorId){
@@ -102,7 +94,6 @@ public class ApiCallHolder extends DataCollector<ApiCallResponse, ApiCallConfig,
     public synchronized Mono<ApiCallResponse> removeCollector(){
         deleteCollector();
         return monoResponse();
-
     }
 
     private void deleteCollector(){
@@ -120,11 +111,10 @@ public class ApiCallHolder extends DataCollector<ApiCallResponse, ApiCallConfig,
 
     public Mono<JsonNode> lastApiCall(){
         ApiData data = getData();
-        if(data.getData()==null)
+        if(data.getData()==null || data.isFail())
             return request;
         else return Mono.just(data.getData());
     }
-
 
     public Mono<ApiCallResponse> stopCheckApiCall(){
         stopCheck();
@@ -136,8 +126,6 @@ public class ApiCallHolder extends DataCollector<ApiCallResponse, ApiCallConfig,
             checkApiCall.dispose();
             checkApiCall = null;
         }
-
     }
-
 
 }
