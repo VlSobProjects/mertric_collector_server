@@ -12,7 +12,6 @@ import ru.iteco.nt.metric_collector_server.collectors.ApiCollectorService;
 import ru.iteco.nt.metric_collector_server.collectors.holders.DataCollector;
 import ru.iteco.nt.metric_collector_server.collectors.model.responses.ApiCallResponse;
 import ru.iteco.nt.metric_collector_server.collectors.model.responses.ApiCollectorResponse;
-import ru.iteco.nt.metric_collector_server.influx.InfluxMetricService;
 
 
 @Slf4j
@@ -22,7 +21,6 @@ import ru.iteco.nt.metric_collector_server.influx.InfluxMetricService;
 public class ApiCollectorController {
 
     private final ApiCollectorService apiCollectorService;
-    private final InfluxMetricService influxMetricService;
 
     @Operation(summary = "start collecting data from api with delay")
     @GetMapping("/startCollector/{collectorId}")

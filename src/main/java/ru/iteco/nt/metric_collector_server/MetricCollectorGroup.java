@@ -3,8 +3,10 @@ package ru.iteco.nt.metric_collector_server;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.node.ObjectNode;
 import lombok.Getter;
+import lombok.extern.slf4j.Slf4j;
 import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
+import ru.iteco.nt.metric_collector_server.collectors.holders.ApiCollectorHolder;
 import ru.iteco.nt.metric_collector_server.influx.model.responses.ResponseWithMessage;
 import ru.iteco.nt.metric_collector_server.utils.Utils;
 
@@ -19,6 +21,7 @@ import java.util.function.Function;
 import java.util.function.UnaryOperator;
 import java.util.stream.Collectors;
 
+@Slf4j
 public abstract class MetricCollectorGroup<P,S extends MetricConfig,R extends DataResponse<S> & ResponseWithMessage<R>,W extends MetricWriter<P,?,?,?>,C extends MetricCollector<P,?,?,?>> extends MetricCollector<P,S,W,R> {
 
     @Getter
@@ -36,13 +39,14 @@ public abstract class MetricCollectorGroup<P,S extends MetricConfig,R extends Da
     @Override
     public void addPointFromData(JsonNode data, List<P> list, Instant time) {
         collectors.forEach(c->c.addPointFromData(data,list,time));
+        log.debug("add point: list size: {}", list.size());
     }
 
     @Override
-    public Mono<List<JsonNode>> validate() {
+    public Mono<List<JsonNode>> validateMono() {
         return Flux.concat(collectors
                 .stream()
-                .map(MetricCollector::validate)
+                .map(MetricCollector::validateMono)
                 .collect(Collectors.toList())
         ).reduce(new ArrayList<>(),(l1, l2)-> {
                     l1.addAll(l2);
@@ -51,11 +55,16 @@ public abstract class MetricCollectorGroup<P,S extends MetricConfig,R extends Da
         );
     }
 
-    public <SC extends MetricConfig> Mono<R> validateAndAdd(Mono<JsonNode> data, SC config, Function<SC,C> create){
+    public <SC extends MetricConfig> Mono<R> validateAndAdd(ApiCollectorHolder collectorHolder, SC config, Function<SC,C> create){
         if(collectors.stream().anyMatch(c->c.getConfig().equals(config))) return Utils.setMessageAndData(responseMono(),"Error: Metric Collector with same config exist in group",Utils.getError(getClass().getSimpleName(),"Duplicated config" ,config));
         C collector = create.apply(config);
-        return collector.validateAndSet(responseMono(),data,r->{
+        return collector.validateAndSet(responseMono(),collectorHolder.getApiCallHolder().lastApiCall(),r->{
             collectors.add(collector);
+            setValidate(collectors.stream().anyMatch(MetricCollector::isValidate));
+            log.debug("isValidate {}",isValidate());
+            if(isValidate()){
+                start(Flux.concat(collectorHolder.getApiCallHolder().lastApiCall(),collectorHolder.getCollector()));
+            }
             return Utils.setMessageAndData(r,"Collector added",config);
         });
     }
@@ -78,21 +87,23 @@ public abstract class MetricCollectorGroup<P,S extends MetricConfig,R extends Da
         return response.flatMap(r->(r.isFail() &&  doOnError) || (!r.isFail() && !doOnError) ? doOn.apply(Mono.just(r)) : Mono.just(r));
     }
 
+
     @Override
-    public Mono<List<JsonNode>> validateData(JsonNode data) {
-        return Flux.concat(collectors
-                .stream()
-                .map(c->c.validateData(data))
-                .collect(Collectors.toList())
-        ).reduce(new ArrayList<>(),(l1,l2)-> {
-                    l1.addAll(l2);
-                    return l1;
-                }
-        );
+    public List<JsonNode> validateData(JsonNode data) {
+        return collectors.stream().map(c->c.validateData(data)).reduce(new ArrayList<>(),(l1,l2)-> {
+            l1.addAll(l2);
+            return l1;
+        });
     }
 
     @Override
     public boolean isValidationFail(List<JsonNode> validationResult) {
         return collectors.stream().findFirst().map(c->c.isValidationFail(validationResult)).orElse(false);
+    }
+
+    @Override
+    public void validateDataAndSet(JsonNode data) {
+        setValidate(collectors.stream().peek(c->c.validateDataAndSet(data)).anyMatch(MetricCollector::isValidate));
+
     }
 }

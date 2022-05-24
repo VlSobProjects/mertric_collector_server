@@ -11,10 +11,7 @@ import org.springframework.stereotype.Service;
 import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
 
-import ru.iteco.nt.metric_collector_server.collectors.holders.ApiCallHolder;
-import ru.iteco.nt.metric_collector_server.collectors.holders.ApiClientHolder;
-import ru.iteco.nt.metric_collector_server.collectors.holders.ApiCollectorHolder;
-import ru.iteco.nt.metric_collector_server.collectors.holders.DataCollector;
+import ru.iteco.nt.metric_collector_server.collectors.holders.*;
 import ru.iteco.nt.metric_collector_server.collectors.model.responses.ApiCallResponse;
 import ru.iteco.nt.metric_collector_server.collectors.model.responses.ApiClientResponse;
 import ru.iteco.nt.metric_collector_server.collectors.model.responses.ApiCollectorResponse;
@@ -24,10 +21,7 @@ import ru.iteco.nt.metric_collector_server.collectors.model.settings.ApiCollecto
 import ru.iteco.nt.metric_collector_server.utils.Utils;
 
 
-import java.util.List;
-import java.util.Map;
-import java.util.Objects;
-import java.util.Optional;
+import java.util.*;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.function.Function;
 import java.util.function.Predicate;
@@ -125,6 +119,10 @@ public class ApiCollectorService {
             CLIENT_MAP.values().forEach(ApiClientHolder::deleteAll);
             CLIENT_MAP.clear();
         });
+    }
+
+    public static Mono<List<ApiClientResponse>> getAllClients(){
+        return Mono.fromSupplier(()->CLIENT_MAP.values().stream().map(ApiHolder::response).collect(Collectors.toList()));
     }
 
     public Flux<DataCollector.ApiData> getCollectorData(int collectorId, long seconds){

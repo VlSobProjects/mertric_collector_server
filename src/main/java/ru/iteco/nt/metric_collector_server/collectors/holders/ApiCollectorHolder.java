@@ -8,8 +8,8 @@ import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
 import ru.iteco.nt.metric_collector_server.collectors.model.settings.ApiCollectorConfig;
 import ru.iteco.nt.metric_collector_server.collectors.model.responses.ApiCollectorResponse;
-import ru.iteco.nt.metric_collector_server.collectors.exception.ApiCollectorException;
 import ru.iteco.nt.metric_collector_server.MetricCollector;
+
 
 import java.time.Duration;
 import java.util.List;
@@ -30,23 +30,7 @@ public class ApiCollectorHolder extends DataCollector<ApiCollectorResponse, ApiC
     public ApiCollectorHolder(ApiCallHolder apiCallHolder, ApiCollectorConfig apiCollectorConfig) {
         super(apiCollectorConfig,isSource.incrementAndGet());
         this.apiCallHolder = apiCallHolder;
-        Flux<JsonNode> flux = Flux.concat(apiCallHolder.getRequest()
-                        ,apiCallHolder.getRequest().delayElement(Duration.ofMillis(apiCollectorConfig.getPeriodMillis())).repeat()
-                ).flatMap(j->{
-                    if(j.has("error")){
-                        return Mono.error(new ApiCollectorException(j));
-                    } else return Mono.just(j);
-                });
-        if(apiCallHolder.getRetry()!=null){
-            flux = flux.retryWhen(apiCallHolder.getRetry());
-        }
-        collector = flux
-                .doOnNext(this::setData)
-                .doOnError(th->(th.getCause() instanceof ApiCollectorException),th-> {
-                    ApiCollectorException e = (ApiCollectorException) th.getCause();
-                    log.debug("error: {}",e.getError());
-                    apiCallHolder.setData(e.getError());
-                }).share();
+        collector = apiCallHolder.getRequest().delayElement(Duration.ofMillis(apiCollectorConfig.getPeriodMillis())).repeat().filter(j->!j.has("error")).doOnNext(this::setData).share();
     }
 
     public Mono<ApiCollectorResponse> addAndStarMetricCollector(MetricCollector<?,?,?,?> metricCollector){
@@ -62,10 +46,16 @@ public class ApiCollectorHolder extends DataCollector<ApiCollectorResponse, ApiC
     }
 
     public synchronized void start(){
-        if(!isCollecting()) {
-            collecting = collector.subscribe();
+        if(!apiCallHolder.isFail()){
+            if(!isCollecting()) {
+                collecting = collector.subscribe();
+            }
+            metricCollectors.stream().filter(MetricCollector::isValidate).filter(c->!c.isRunning()).forEach(c->c.start(Flux.concat(collector)));
         }
-        metricCollectors.stream().filter(c->!c.isRunning()).forEach(c->c.start(collector));
+    }
+
+    public void validateMetricCollectors(JsonNode jsonNode){
+        metricCollectors.forEach(c->c.validateDataAndSet(jsonNode));
     }
 
     public ApiCollectorResponse stopCollecting(){

@@ -108,7 +108,7 @@ public abstract class MetricService<
         return  getCollectorGroupFromMap(groupId).map(c->{
             ApiCollectorHolder holder = apiCollectorService.getApiCollectorById(c.getConfig().getApiCollectorId()).orElse(null);
             if(holder==null) return Utils.setMessageAndData(c.responseMono(),"Unexpected ApiCollectorHolder not found in apiCollectorService",c.getConfig());
-            else return c.validateAndAdd(holder.getApiCallHolder().lastApiCall(),config,conf->getCollector(conf,c.getCollectorId()));
+            else return c.validateAndAdd(holder,config,conf->getCollector(conf,c.getCollectorId()));
         }).orElse(getErrorGroupCollector("Metric Collector Group not found by id: "+groupId));
     }
 
@@ -210,14 +210,14 @@ public abstract class MetricService<
 
     private static  <R extends DataResponse<?> & ResponseWithMessage<R>,T extends MetricConfig,W extends MetricWriter<?,?,?,?>> Mono<R> addToCollectorMap(Mono<R> response, T config, W connector, BiFunction<T,W, MetricCollector<?,?,?,?>> creator, ApiCollectorHolder holder) {
         if(METRIC_COLLECTOR_MAP.values().stream().anyMatch(c->c.getConfig().equals(config)))
-            return Utils.setData(response
-                    ,Utils.getError("MetricService","Error: Duplicated config collector",config)
-            );
+            return Utils.setData(
+                    response
+                    ,Utils.getError("MetricService","Error: Duplicated config collector",config));
         else {
             MetricCollector<?,?,?,?> collector = creator.apply(config,connector);
             return collector.validateAndSet(response,holder.getApiCallHolder().lastApiCall(),r->{
                 METRIC_COLLECTOR_MAP.put(collector.getId(),collector);
-                return Utils.setMessageAndData(Utils.reduceResponseData(response,holder.addAndStarMetricCollector(collector)),collector.getClass()+" added.");
+                return Utils.setMessageAndData(Utils.reduceResponseData(response,holder.addAndStarMetricCollector(collector)),collector.getClass().getSimpleName()+" added.",collector.response());
             });
         }
     }

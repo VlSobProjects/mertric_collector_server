@@ -24,12 +24,20 @@ public class InfluxMetricCollectorGroup extends MetricCollectorGroup<
 
     @Override
     public InfluxMetricCollectorGroupResponse response() {
+        long notValidated = getCollectors().stream().filter(m->!m.isValidate()).count();
+        String m = getCollectors().isEmpty() ?
+                "No collectors" :
+                notValidated > 0 ?
+                        notValidated+" collectors not validated" :
+                        "All collectors validated";
         return InfluxMetricCollectorGroupResponse.builder()
                 .time(System.currentTimeMillis())
                 .collecting(isRunning())
                 .writer(getDbConnector().response())
                 .collectors(getCollectors().stream().map(InfluxMetricCollector::response).collect(Collectors.toList()))
                 .id(getId())
+                .validate(isValidate())
+                .message(m)
                 .settings(getConfig())
                 .build()
                 ;

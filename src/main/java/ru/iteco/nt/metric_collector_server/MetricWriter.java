@@ -2,18 +2,23 @@ package ru.iteco.nt.metric_collector_server;
 
 import lombok.AccessLevel;
 import lombok.Getter;
+import lombok.extern.slf4j.Slf4j;
 import reactor.core.Disposable;
 import reactor.core.publisher.Mono;
 import ru.iteco.nt.metric_collector_server.influx.model.responses.WriterResponse;
 import ru.iteco.nt.metric_collector_server.influx.model.settings.WriterConfig;
+import ru.iteco.nt.metric_collector_server.utils.Utils;
 
 import java.time.Duration;
+import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.List;
 import java.util.concurrent.LinkedBlockingDeque;
 import java.util.concurrent.atomic.AtomicInteger;
+import java.util.stream.Collectors;
 
+@Slf4j
 public abstract class MetricWriter<T,S extends WriterConfig,R extends WriterResponse<S>,B  extends WriterResponse.WriterResponseBuilder<S,R,?>> {
 
     private final static AtomicInteger ID_SOURCE = new AtomicInteger();
@@ -97,12 +102,16 @@ public abstract class MetricWriter<T,S extends WriterConfig,R extends WriterResp
         pointQueue.drainTo(list,5000);
         lastDataSize = list.size();
         maxDataSize = Integer.max(maxDataSize,lastDataSize);
+        log.debug("Data write: {} point times: {}", Utils.valueToTree(response()),list.stream().map(this::getMetricTime).collect(Collectors.toList()));
         return list;
     }
+
+    protected abstract LocalDateTime getMetricTime(T point);
 
     public void addPoints(List<T> points){
         pointQueue.addAll(points);
         maxDataSize = Integer.max(maxQueueSize,pointQueue.size());
+        log.debug("Data add: {}, list.size: {}, point times: {}", Utils.valueToTree(response()),points.size(),points.stream().map(this::getMetricTime).collect(Collectors.toList()));
     }
 
     public boolean isSameConfig(Object config){

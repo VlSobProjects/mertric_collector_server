@@ -43,7 +43,7 @@ public class ApiCallController {
     }
 
     @Operation(summary = "Delete api call and api collector by api call Id and return ApiClientResponse of connecting with api call client")
-    @RequestMapping(method = RequestMethod.DELETE,value = "/call/{apiCallId}")
+    @RequestMapping(method = RequestMethod.DELETE,value = "/{apiCallId}")
     private Mono<ApiClientResponse> deleteCall(@PathVariable int apiCallId){
         return apiCollectorService.deleteCallById(apiCallId);
     }

@@ -109,21 +109,21 @@ public class InfluxFieldsCollector {
             else return Utils.getError("InfluxFieldsCollector.validate","Influx Filed config Validation Fail",errors.toArray());
         });
     }
-    public Mono<JsonNode> validateData(JsonNode data){
-        return Mono.fromSupplier(()->{
-            List<JsonNode> errors = new ArrayList<>();
-            AtomicInteger count = new AtomicInteger();
-            dataValidateAndCount(data,influxField,count,errors::add);
-            if(errors.isEmpty()){
-                int settersCount = getPointSetters(data).size();
-                if(settersCount!=count.get()){
-                    return Utils.getObjectNode("message",String.format("Data InfluxField Check - No error found, One warning: Number of Setter: %s not equal dataValidateAndCount result: %s.",settersCount,count.get()))
-                            .set("filed",influxField.shortVersion());
-                } else return Utils.getObjectNode("message","Data InfluxField Check - No error found, No warning.")
+
+    public JsonNode validateData(JsonNode data){
+        List<JsonNode> errors = new ArrayList<>();
+        AtomicInteger count = new AtomicInteger();
+        dataValidateAndCount(data,influxField,count,errors::add);
+        if(errors.isEmpty()){
+            int settersCount = getPointSetters(data).size();
+            if(settersCount!=count.get()){
+                return Utils.getObjectNode("message",String.format("Data InfluxField Check - No error found, One warning: Number of Setter: %s not equal dataValidateAndCount result: %s.",settersCount,count.get()))
                         .set("filed",influxField.shortVersion());
-            } else return Utils.getError("InfluxFieldsCollector.validateData","Influx Data config Validation Fail",errors.toArray());
-        });
+            } else return Utils.getObjectNode("message","Data InfluxField Check - No error found, No warning.")
+                    .set("filed",influxField.shortVersion());
+        } else return Utils.getError("InfluxFieldsCollector.validateData","Influx Data config Validation Fail",errors.toArray());
     }
+
 
     private static int countMax(JsonNode node,Collection<InfluxField> fields,Consumer<JsonNode> error){
         return fields.stream().mapToInt(f->{

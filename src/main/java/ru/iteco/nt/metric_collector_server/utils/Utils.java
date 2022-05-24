@@ -12,7 +12,6 @@ import lombok.experimental.UtilityClass;
 import lombok.extern.slf4j.Slf4j;
 import org.influxdb.dto.Point;
 import org.springframework.http.HttpStatus;
-import org.springframework.web.reactive.function.BodyExtractors;
 import org.springframework.web.reactive.function.client.ClientResponse;
 import org.springframework.web.reactive.function.client.ExchangeFilterFunction;
 import org.springframework.web.reactive.function.client.WebClient;
@@ -21,6 +20,9 @@ import reactor.core.publisher.Mono;
 import ru.iteco.nt.metric_collector_server.DataResponse;
 import ru.iteco.nt.metric_collector_server.influx.model.responses.ResponseWithMessage;
 
+import java.time.Instant;
+import java.time.LocalDateTime;
+import java.time.ZoneId;
 import java.util.*;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.function.*;
@@ -252,7 +254,8 @@ public class Utils {
 
     public Mono<JsonNode> getWithOnHttpErrorResponseSpec(String source, WebClient.ResponseSpec responseSpec){
         return responseSpec
-                .onStatus(HttpStatus::isError, ClientResponse::createException).bodyToMono(JsonNode.class)
+                .onStatus(HttpStatus::isError, ClientResponse::createException)
+                .bodyToMono(JsonNode.class)
                 .onErrorResume(th->Mono.just(getError(source,th.toString())));
     }
 
@@ -378,6 +381,26 @@ public class Utils {
 
     private JsonNode convert(Object...objects){
         return convert(j->true,objects);
+    }
+
+    public LocalDateTime getInfluxPointTime(Point point) {
+        return getTimeFromInfluxPointLinerProtocol(point.lineProtocol());
+    }
+
+    public LocalDateTime getTimeFromInfluxPointLinerProtocol(String point){
+        String[] arr = point.split(" ");
+        return LocalDateTime.ofInstant(Instant.ofEpochMilli(Long.parseLong(arr[arr.length-1]) / 1000000), ZoneId.systemDefault());
+    }
+
+    public Runnable runWithErrorLog(Runnable runnable){
+        return ()->{
+            try {
+                runnable.run();
+            }catch (Exception e){
+                log.error("fail to run",e);
+                throw new RuntimeException(e);
+            }
+        };
     }
 
 }

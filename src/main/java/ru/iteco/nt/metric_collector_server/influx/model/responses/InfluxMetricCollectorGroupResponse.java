@@ -16,6 +16,7 @@ public class InfluxMetricCollectorGroupResponse extends DataResponse<InfluxMetri
     private final WriterResponse<?> writer;
     private final List<InfluxMetricCollectorResponse> collectors;
     private String message;
+    private boolean validate;
 
     public static Mono<InfluxMetricCollectorGroupResponse> factoryError(String source, String message, Object ...objects){
         return Mono.just(factoryError(source, message,builder(),objects));

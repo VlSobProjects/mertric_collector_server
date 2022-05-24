@@ -9,6 +9,7 @@ import reactor.core.publisher.Mono;
 import ru.iteco.nt.metric_collector_server.DataResponse;
 import ru.iteco.nt.metric_collector_server.MetricService;
 import ru.iteco.nt.metric_collector_server.collectors.ApiCollectorService;
+import ru.iteco.nt.metric_collector_server.collectors.model.responses.ApiClientResponse;
 import ru.iteco.nt.metric_collector_server.influx.model.responses.WriterResponse;
 
 import java.util.List;
@@ -28,13 +29,13 @@ public class AdminController {
     }
 
     @Operation(summary = "get all metric writes")
-    @GetMapping("/getAllMetricWriters")
+    @GetMapping("/allMetricWriters")
     private Mono<List<WriterResponse<?>>> getAllWriters(){
         return MetricService.getAllWriters();
     }
 
     @Operation(summary = "get all metric collectors")
-    @GetMapping("/getAllMetricCollectors")
+    @GetMapping("/allMetricCollectors")
     private Mono<List<DataResponse<?>>> getAllCollectors(){
         return MetricService.getAllCollectors();
     }
@@ -51,9 +52,15 @@ public class AdminController {
         return deleteAllMetricAnControllers().then(ApiCollectorService.deleteAll());
     }
 
-    @Operation(summary = "get Collector by Id")
+    @Operation(summary = "get Metric Collector by Id")
     @GetMapping ("/collector/{collectorId}")
     private Mono<JsonNode> getCollectorById(@PathVariable int collectorId){
         return MetricService.getCollectorById(collectorId);
+    }
+
+    @Operation(summary = "get all Api Clients")
+    @GetMapping("/allApiClients")
+    private Mono<List<ApiClientResponse>> getAllApiClients(){
+        return ApiCollectorService.getAllClients();
     }
 }

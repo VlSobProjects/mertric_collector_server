@@ -44,6 +44,7 @@ public class InfluxMetricCollector extends MetricCollector<
                 .writer(getDbConnector()==null ? null : getDbConnector().response())
                 .time(System.currentTimeMillis())
                 .settings(getConfig().shortVersion())
+                .validate(isValidate())
                 .id(getId())
                 .build();
     }
@@ -72,17 +73,20 @@ public class InfluxMetricCollector extends MetricCollector<
         });
     }
 
-    public Mono<List<JsonNode>> validate(){
+    public Mono<List<JsonNode>> validateMono(){
         return Flux.fromIterable(getConfig().getFields())
                 .map(InfluxFieldsCollector::new)
                 .flatMap(InfluxFieldsCollector::validate)
                 .collectList();
     }
-    public Mono<List<JsonNode>> validateData(JsonNode data){
-        return Flux.fromIterable(getConfig().getFields())
+
+    public List<JsonNode> validateData(JsonNode data){
+        return getConfig()
+                .getFields()
+                .stream()
                 .map(InfluxFieldsCollector::new)
-                .flatMap(c->c.validateData(data))
-                .collectList();
+                .map(c->c.validateData(data))
+                .collect(Collectors.toList());
     }
 
 

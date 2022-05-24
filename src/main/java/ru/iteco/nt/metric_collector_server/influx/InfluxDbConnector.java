@@ -9,6 +9,10 @@ import org.influxdb.dto.Pong;
 import ru.iteco.nt.metric_collector_server.MetricWriter;
 import ru.iteco.nt.metric_collector_server.influx.model.responses.InfluxDbConnectorResponse;
 import ru.iteco.nt.metric_collector_server.influx.model.settings.InfluxDBConnectorConfig;
+import ru.iteco.nt.metric_collector_server.utils.Utils;
+
+
+import java.time.LocalDateTime;
 import java.util.Collection;
 
 
@@ -29,6 +33,11 @@ public class InfluxDbConnector extends MetricWriter<Point,InfluxDBConnectorConfi
     public boolean check(){
         Pong p = getConnection(false).ping();
         return p!=null && p.isGood();
+    }
+
+    @Override
+    protected LocalDateTime getMetricTime(Point point) {
+        return Utils.getInfluxPointTime(point);
     }
 
     private synchronized InfluxDB getConnection(boolean batch){

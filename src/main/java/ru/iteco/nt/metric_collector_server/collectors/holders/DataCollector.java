@@ -5,9 +5,13 @@ import lombok.AccessLevel;
 import lombok.Getter;
 import lombok.RequiredArgsConstructor;
 import lombok.Setter;
+import lombok.extern.slf4j.Slf4j;
 import ru.iteco.nt.metric_collector_server.DataResponse;
 import ru.iteco.nt.metric_collector_server.utils.Utils;
 
+import java.util.Comparator;
+
+@Slf4j
 @Getter
 public abstract class DataCollector<R extends DataResponse<S>,S,B extends DataResponse.DataResponseBuilder<S,R,?>> extends ApiHolder<R,S,B> {
 
@@ -29,12 +33,20 @@ public abstract class DataCollector<R extends DataResponse<S>,S,B extends DataRe
         data = jsonNode;
         time = System.currentTimeMillis();
         fail = jsonNode.has("error");
+        log.debug("set data: lasFail: {}, fail: {}, doOnError!=null: {}, doAfterFail!=null:{}",lasFail,fail,doOnError!=null,doAfterError!=null);
         if(fail && !lasFail && doOnError !=null)
             doOnError.run();
         if(!fail && lasFail && doAfterError !=null){
             doAfterError.run();
         }
 
+    }
+
+    public synchronized boolean isNotSameError(JsonNode jsonNode){
+        if(!jsonNode.has("error") || !isFail()) return true;
+        boolean is = jsonNode.get("error").get("errorMessage").equals(data.get("error").get("errorMessage"));
+        log.debug("IS equals {}, cur error errorMessage:\n{}, new error errorMessage:\n{}",is,data.get("error").get("errorMessage"),jsonNode.get("error").get("errorMessage"));
+        return !is;
     }
 
     @SuppressWarnings("unchecked")
@@ -61,5 +73,9 @@ public abstract class DataCollector<R extends DataResponse<S>,S,B extends DataRe
         private final JsonNode data;
         private final long time;
         private final boolean fail;
+
+        public JsonNode getNotNullData(){
+            return data == null ? Utils.getError("DataCollector","daya is null") : data;
+        }
     }
 }

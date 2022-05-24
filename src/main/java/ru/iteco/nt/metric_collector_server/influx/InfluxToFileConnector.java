@@ -5,6 +5,7 @@ import org.influxdb.dto.Point;
 import ru.iteco.nt.metric_collector_server.MetricWriter;
 import ru.iteco.nt.metric_collector_server.influx.model.responses.InfluxToFileConnectorResponse;
 import ru.iteco.nt.metric_collector_server.influx.model.settings.InfluxToFileConnectorConfig;
+import ru.iteco.nt.metric_collector_server.utils.Utils;
 
 import java.io.IOException;
 import java.nio.file.Files;
@@ -49,7 +50,7 @@ public class InfluxToFileConnector extends MetricWriter<Point, InfluxToFileConne
     protected void writeData(Collection<Point> data) {
         if(check()){
             LocalDateTime time = LocalDateTime.now();
-            List<String> list =  data.stream().map(Point::lineProtocol).map(s->String.format("[%s] %s",time,s)).collect(Collectors.toList());
+            List<String> list =  data.stream().map(Point::lineProtocol).map(s->String.format("[%s] %s [%S]",time,s,Utils.getTimeFromInfluxPointLinerProtocol(s))).collect(Collectors.toList());
             try {
                 Files.write(filePath,list,StandardOpenOption.APPEND);
             } catch (IOException e) {
@@ -62,6 +63,11 @@ public class InfluxToFileConnector extends MetricWriter<Point, InfluxToFileConne
     @Override
     public boolean check(){
         return filePath!=null && Files.isRegularFile(filePath) && Files.isWritable(filePath);
+    }
+
+    @Override
+    protected LocalDateTime getMetricTime(Point point) {
+        return Utils.getInfluxPointTime(point);
     }
 
 

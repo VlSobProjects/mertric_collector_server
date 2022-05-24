@@ -13,7 +13,9 @@ import ru.iteco.nt.metric_collector_server.utils.Utils;
 import java.time.Instant;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicInteger;
+import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.UnaryOperator;
 import java.util.stream.Collectors;
 
@@ -32,6 +34,8 @@ public abstract class MetricCollector<P,S extends MetricConfig,C extends MetricW
     @Getter
     private final C dbConnector;
     private Disposable disposable;
+    private final AtomicBoolean validate = new AtomicBoolean();
+    private final AtomicReference<List<JsonNode>> validationError = new AtomicReference<>();
 
     protected MetricCollector(S config, C dbConnector) {
         this.config = config;
@@ -45,13 +49,22 @@ public abstract class MetricCollector<P,S extends MetricConfig,C extends MetricW
         dbConnector = null;
     }
 
+    public boolean isValidate(){
+        return validate.get();
+    }
+
+    protected void setValidate(boolean validate){
+        this.validate.set(validate);
+    }
+
     public abstract T response();
 
     public Mono<T> responseMono(){
         return Mono.fromSupplier(this::response);
     }
 
-    public void stop(){
+    public synchronized void stop(){
+        log.debug("stop isRunning() {}",isRunning());
         if(disposable!=null && !disposable.isDisposed())
             disposable.dispose();
         disposable = null;
@@ -63,8 +76,13 @@ public abstract class MetricCollector<P,S extends MetricConfig,C extends MetricW
                 Mono.fromRunnable(()->start(source)).then(getWithMessage("started"));
     }
 
-    public void start(Flux<JsonNode> source){
-        disposable = setUpCollectingDisposable(source);
+    public synchronized void start(Flux<JsonNode> source){
+        log.debug("start isRunning {}",isRunning());
+        if(!isRunning()){
+            disposable = setUpCollectingDisposable(source);
+            log.debug("start new disposable is disposed: {}",isRunning());
+       }
+
     }
 
     public Disposable setUpCollectingDisposable(Flux<JsonNode> source) {
@@ -72,6 +90,7 @@ public abstract class MetricCollector<P,S extends MetricConfig,C extends MetricW
             List<P> list = new ArrayList<>();
             Instant time = Instant.now();
             addPointFromData(data,list,time);
+            log.debug("Get data: {} list size:{}",data,list.size());
             dbConnector.addPoints(list);
         });
     }
@@ -102,21 +121,32 @@ public abstract class MetricCollector<P,S extends MetricConfig,C extends MetricW
     }
 
     protected <R extends DataResponse<?> & ResponseWithMessage<R>> Mono<R> validateAndDo(Mono<R> response, Mono<JsonNode> data, boolean doOnError , UnaryOperator<Mono<R>> doOn){
-        return validate().flatMap(l->{
+        return validateMono().flatMap(l->{
             if(isValidationFail(l)){
                 Mono<R> r = Utils.setMessageAndData(response,"Collector Filed Validation Fail",leaveOnlyAndSetErrorsData(l));
                 return doOnError ? doOn.apply(r) : r;
             } else return data.flatMap(j->{
                 if((j==null || j.isEmpty() || j.has("error"))){
                     return doOnError ? failToCheckWarn(response,j) : doOn.apply(failToCheckWarn(response,j));
-                } else return validateData(j).flatMap(l2->{
-                    Mono<R> r = isValidationFail(l2) ?
-                            Utils.setMessageAndData(response,"Collector Data Validation Fail",leaveOnlyAndSetErrorsData(l2)) :
-                            response;
-                    return (doOnError && isValidationFail(l2)) || (!doOnError && !isValidationFail(l2)) ? doOn.apply(r) : r;
+                } else return validateDataMono(j).flatMap(l2->{
+                    validate.set(!isValidationFail(l2));
+                    if(!validate.get()) validationError.set(leaveOnlyAndSetErrorsData(l2));
+                    else validationError.set(null);
+                    Mono<R> r = validate.get() ?
+                            response:
+                            Utils.setMessageAndData(response,"Collector Data Validation Fail",validationError.get());
+                    return (doOnError && !validate.get()) || (!doOnError && validate.get()) ? doOn.apply(r) : r;
                 });
             });
         });
+    }
+
+    public void validateDataAndSet(JsonNode data){
+        List<JsonNode> r = validateData(data);
+        validate.set(!isValidationFail(validateData(data)));
+        if(!validate.get()){
+            validationError.set(leaveOnlyAndSetErrorsData(r));
+        } else validationError.set(null);
     }
 
     protected <R extends DataResponse<?> & ResponseWithMessage<R>> Mono<R> failToCheckWarn(Mono<R> response,JsonNode error){
@@ -135,9 +165,13 @@ public abstract class MetricCollector<P,S extends MetricConfig,C extends MetricW
         return disposable!=null && !disposable.isDisposed();
     }
 
-    public abstract Mono<List<JsonNode>> validate();
+    public abstract Mono<List<JsonNode>> validateMono();
 
-    public abstract Mono<List<JsonNode>> validateData(JsonNode data);
+    public Mono<List<JsonNode>> validateDataMono(JsonNode data){
+        return Mono.fromSupplier(()->validateData(data));
+    }
+
+    public abstract List<JsonNode> validateData(JsonNode data);
 
     public boolean isValidationFail(List<JsonNode> validationResult) {
         return validationResult.stream().anyMatch(j->j.has("error"));

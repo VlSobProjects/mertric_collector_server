@@ -7,7 +7,6 @@ import org.influxdb.dto.Point;
 import org.junit.jupiter.api.Test;
 import reactor.core.Disposable;
 import reactor.core.publisher.Flux;
-import reactor.core.publisher.Mono;
 import ru.iteco.nt.metric_collector_server.influx.model.settings.InfluxToFileConnectorConfig;
 import ru.iteco.nt.metric_collector_server.utils.Utils;
 import ru.iteco.nt.metric_collector_server.influx.model.settings.InfluxField;
@@ -103,7 +102,7 @@ class InfluxMetricCollectorTest {
         InfluxMetricCollectorConfig collectorConfig =  getTestConfig();
         assertNotNull(collectorConfig);
         InfluxMetricCollector collector = new InfluxMetricCollector(collectorConfig,0);
-        Disposable d = collector.validate().subscribe(l->l.forEach(n->System.out.println(n.toPrettyString())));
+        Disposable d = collector.validateMono().subscribe(l->l.forEach(n->System.out.println(n.toPrettyString())));
         while (!d.isDisposed()){
             TimeUnit.MILLISECONDS.wait(500);
         }
@@ -120,7 +119,7 @@ class InfluxMetricCollectorTest {
                 getStubCollector("peakThreadsCount","/peakThreadsCount"),
                 getStubCollector("systemCpuLoad","/systemCpuLoad")
         );
-        Disposable d = collectors.stream().map(InfluxMetricCollector::validate).reduce(Flux.empty(), Flux::concat, Flux::concat).subscribe(System.out::println);
+        Disposable d = collectors.stream().map(InfluxMetricCollector::validateMono).reduce(Flux.empty(), Flux::concat, Flux::concat).subscribe(System.out::println);
         while (!d.isDisposed()){
             TimeUnit.MILLISECONDS.wait(500);
         }
@@ -134,7 +133,7 @@ class InfluxMetricCollectorTest {
         InfluxMetricCollectorConfig collectorConfig =  getTestConfig();
         assertNotNull(collectorConfig);
         InfluxMetricCollector collector = new InfluxMetricCollector(collectorConfig,0);
-        Disposable d = collector.validateData(source).subscribe(l->l.forEach(n->System.out.println(n.toPrettyString())));
+        Disposable d = collector.validateDataMono(source).subscribe(l->l.forEach(n->System.out.println(n.toPrettyString())));
         while (!d.isDisposed()){
             TimeUnit.MILLISECONDS.wait(500);
         }
@@ -159,7 +158,7 @@ class InfluxMetricCollectorTest {
                 getStubCollector("peakThreadsCount","/peakThreadsCount"),
                 getStubCollector("systemCpuLoad","/systemCpuLoad")
         );
-        Disposable d = collectors.stream().map(c->c.validateData(source)).reduce(Flux.empty(), Flux::concat, Flux::concat).subscribe(System.out::println);
+        Disposable d = collectors.stream().map(c->c.validateDataMono(source)).reduce(Flux.empty(), Flux::concat, Flux::concat).subscribe(System.out::println);
         while (!d.isDisposed()){
             TimeUnit.MILLISECONDS.wait(500);
         }

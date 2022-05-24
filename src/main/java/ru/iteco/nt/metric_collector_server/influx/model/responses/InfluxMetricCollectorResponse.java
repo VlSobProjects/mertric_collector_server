@@ -6,6 +6,8 @@ import lombok.experimental.SuperBuilder;
 import reactor.core.publisher.Mono;
 import ru.iteco.nt.metric_collector_server.DataResponse;
 
+import java.util.List;
+
 @Getter
 @SuperBuilder
 public class InfluxMetricCollectorResponse extends DataResponse<JsonNode> implements ResponseWithMessage<InfluxMetricCollectorResponse> {
@@ -13,6 +15,8 @@ public class InfluxMetricCollectorResponse extends DataResponse<JsonNode> implem
     private final boolean collecting;
     private final WriterResponse<?> writer;
     private String message;
+    private boolean validate;
+    private List<JsonNode> validationError;
 
     public static Mono<InfluxMetricCollectorResponse> factoryError(String source, String message, Object ...objects){
         return Mono.just(factoryError(source, message,builder(),objects));

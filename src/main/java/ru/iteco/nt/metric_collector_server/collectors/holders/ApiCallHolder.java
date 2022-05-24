@@ -7,6 +7,7 @@ import lombok.extern.slf4j.Slf4j;
 import reactor.core.Disposable;
 import reactor.core.publisher.Mono;
 import reactor.util.retry.Retry;
+import ru.iteco.nt.metric_collector_server.collectors.exception.ApiCollectorException;
 import ru.iteco.nt.metric_collector_server.collectors.model.settings.ApiCallConfig;
 import ru.iteco.nt.metric_collector_server.collectors.model.responses.ApiCallResponse;
 import ru.iteco.nt.metric_collector_server.collectors.model.settings.ApiCollectorConfig;
@@ -21,39 +22,65 @@ public class ApiCallHolder extends DataCollector<ApiCallResponse, ApiCallConfig,
     private static final AtomicInteger isSource = new AtomicInteger();
     private ApiCollectorHolder collectorHolder;
     private final Mono<JsonNode> request;
-    private final Retry retry;
     private Disposable checkApiCall;
 
     public ApiCallHolder(ApiClientHolder apiClientHolder, ApiCallConfig apiCallConfig){
         super(apiCallConfig,isSource.incrementAndGet());
-        request = apiCallConfig.getMethod().trim().equalsIgnoreCase("get") ?
+        Mono<JsonNode> request = apiCallConfig.getMethod().trim().equalsIgnoreCase("get") ?
                 Utils.getWithOnHttpErrorResponseSpec("api call",apiClientHolder.getWebClient().get().uri(apiCallConfig.getUri()).retrieve()).doOnNext(this::setData) :
                 Mono.just(Utils.getError("ApiCallHolder",String.format("Method: %s not implemented", apiCallConfig.getMethod())))
         ;
-        retry = apiCallConfig.getRetry()>0 && apiCallConfig.getRetryPeriod()>0 ?
+        Retry retry = apiCallConfig.getRetry()>0 && apiCallConfig.getRetryPeriod()>0 ?
                 apiCallConfig.isRetryBackoff() ?
                         Retry.backoff(apiCallConfig.getRetry(), Duration.ofSeconds(apiCallConfig.getRetryPeriod())) :
                         Retry.fixedDelay(apiCallConfig.getRetry(),Duration.ofSeconds(apiCallConfig.getRetryPeriod())):
                 null;
 
-        setDoOnError(()->{
-            log.debug("Do on Error");
-            if(collectorHolder!=null && collectorHolder.isCollecting())
-                collectorHolder.stop();
-            if(!isChecking() && apiCallConfig.getCheckPeriod()>0){
-                checkApiCall = setCheckApiCall(apiCallConfig.getCheckPeriod(),request);
+
+        request = retry==null? request :
+             request.flatMap(j->{
+                 if(j.has("error")){
+                     if(isNotSameError(j))
+                         setData(j);
+                     return Mono.error(new ApiCollectorException(j));
+                 } else return Mono.just(j);
+             }).retryWhen(retry);
+        this.request = request.onErrorResume(th-> {
+            JsonNode error = Utils.getError("ApiCollectorHolder.collector",th.toString());
+            if(!isFail()){
+                if(isNotSameError(error))
+                    setData(error);
             }
+            return Mono.just(error);
         });
-        setDoAfterError(()->{
-            log.debug("Do After Error");
+
+        setDoOnError(Utils.runWithErrorLog(()->{
+            log.debug("Do on Error data: {}",getData().getData());
+            if(collectorHolder!=null && collectorHolder.isCollecting()){
+                collectorHolder.stop();
+                log.debug("Do on Error data: collectorHolder is not null and isCollecting: {}",collectorHolder.isCollecting());
+            }
+            log.debug("Do on Error isChecking: {} apiCallConfig.getCheckPeriod(): {}",isChecking(),apiCallConfig.getCheckPeriod());
+            if(!isChecking() && apiCallConfig.getCheckPeriod()>0){
+                log.debug("set up setCheckApiCall: {} sec",apiCallConfig.getCheckPeriod());
+                checkApiCall = setCheckApiCall(apiCallConfig.getCheckPeriod(),this.request);
+            }
+        }));
+        setDoAfterError(Utils.runWithErrorLog(()->{
+            log.debug("Do After Error data: {}",getData().getData());
             if(isChecking()) checkApiCall.dispose();
-            if(collectorHolder!=null && !collectorHolder.isCollecting()) collectorHolder.start();
-        });
-        startOnError();
+            if(collectorHolder!=null) {
+                log.debug("Do After Error data: collectorHolder is not null and isCollecting: {}",collectorHolder.isCollecting());
+                collectorHolder.validateMetricCollectors(getData().getData());
+                collectorHolder.start();
+            }
+
+        }));
+        this.request.subscribe();
     }
 
     private Disposable setCheckApiCall(long seconds,Mono<JsonNode> request){
-        return request.delayElement(Duration.ofSeconds(seconds)).repeat(this::isFail).subscribe();
+        return request.delayElement(Duration.ofSeconds(seconds)).doOnNext(j->log.debug("CheckApiCall: {}",j)).repeat(this::isFail).subscribe();
     }
 
     private boolean isChecking(){
@@ -116,9 +143,8 @@ public class ApiCallHolder extends DataCollector<ApiCallResponse, ApiCallConfig,
 
     public Mono<JsonNode> lastApiCall(){
         ApiData data = getData();
-        if(data.getData()==null || isFail()){
-            return request;
-        } else return Mono.just(data.getData());
+        if(data.getData()==null) return request;
+        else return Mono.just(data.getData());
     }
 
     public Mono<ApiCallResponse> stopCheckApiCall(){
