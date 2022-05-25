@@ -44,7 +44,8 @@ public class InfluxMetricCollector extends MetricCollector<
                 .writer(getDbConnector()==null ? null : getDbConnector().response())
                 .time(System.currentTimeMillis())
                 .settings(getConfig().shortVersion())
-                .validate(isValidate())
+                .validateData(isDataValidated())
+                .validateDataPass(isValidateDataPass())
                 .id(getId())
                 .build();
     }

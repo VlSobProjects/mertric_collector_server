@@ -58,13 +58,9 @@ public abstract class MetricCollectorGroup<P,S extends MetricConfig,R extends Da
     public <SC extends MetricConfig> Mono<R> validateAndAdd(ApiCollectorHolder collectorHolder, SC config, Function<SC,C> create){
         if(collectors.stream().anyMatch(c->c.getConfig().equals(config))) return Utils.setMessageAndData(responseMono(),"Error: Metric Collector with same config exist in group",Utils.getError(getClass().getSimpleName(),"Duplicated config" ,config));
         C collector = create.apply(config);
-        return collector.validateAndSet(responseMono(),collectorHolder.getApiCallHolder().lastApiCall(),r->{
+        return collector.validateAndSet(responseMono(),r->{
             collectors.add(collector);
-            setValidate(collectors.stream().anyMatch(MetricCollector::isValidate));
-            log.debug("isValidate {}",isValidate());
-            if(isValidate()){
-                start(Flux.concat(collectorHolder.getApiCallHolder().lastApiCall(),collectorHolder.getCollector()));
-            }
+            log.debug("Collector added {}",config.shortVersion());
             return Utils.setMessageAndData(r,"Collector added",config);
         });
     }
@@ -103,7 +99,7 @@ public abstract class MetricCollectorGroup<P,S extends MetricConfig,R extends Da
 
     @Override
     public void validateDataAndSet(JsonNode data) {
-        setValidate(collectors.stream().peek(c->c.validateDataAndSet(data)).anyMatch(MetricCollector::isValidate));
-
+        setValidationDataPass(collectors.stream().peek(c->c.validateDataAndSet(data)).anyMatch(MetricCollector::isValidateDataPass));
+        setValidationData(collectors.stream().allMatch(MetricCollector::isDataValidated));
     }
 }

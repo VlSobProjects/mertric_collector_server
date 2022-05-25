@@ -208,14 +208,28 @@ public abstract class MetricService<
                 .map(w-> (W) w);
     }
 
-    private static  <R extends DataResponse<?> & ResponseWithMessage<R>,T extends MetricConfig,W extends MetricWriter<?,?,?,?>> Mono<R> addToCollectorMap(Mono<R> response, T config, W connector, BiFunction<T,W, MetricCollector<?,?,?,?>> creator, ApiCollectorHolder holder) {
+//    private static  <R extends DataResponse<?> & ResponseWithMessage<R>,T extends MetricConfig,W extends MetricWriter<?,?,?,?>> Mono<R> addToCollectorMap(Mono<R> response, T config, W connector, BiFunction<T,W, MetricCollector<?,?,?,?>> creator, ApiCollectorHolder holder) {
+//        if(METRIC_COLLECTOR_MAP.values().stream().anyMatch(c->c.getConfig().equals(config)))
+//            return Utils.setData(
+//                    response
+//                    ,Utils.getError("MetricService","Error: Duplicated config collector",config));
+//        else {
+//            MetricCollector<?,?,?,?> collector = creator.apply(config,connector);
+//            return collector.validateAndSet(response,holder.getApiCallHolder().lastApiCall(),r->{
+//                METRIC_COLLECTOR_MAP.put(collector.getId(),collector);
+//                return Utils.setMessageAndData(Utils.reduceResponseData(response,holder.addAndStarMetricCollector(collector)),collector.getClass().getSimpleName()+" added.",collector.response());
+//            });
+//        }
+//    }
+
+    private static  <R extends DataResponse<?> & ResponseWithMessage<R>,T extends MetricConfig,W extends MetricWriter<?,?,?,?>> Mono<R> addToCollectorMapNew(Mono<R> response, T config, W connector, BiFunction<T,W, MetricCollector<?,?,?,?>> creator, ApiCollectorHolder holder) {
         if(METRIC_COLLECTOR_MAP.values().stream().anyMatch(c->c.getConfig().equals(config)))
             return Utils.setData(
                     response
                     ,Utils.getError("MetricService","Error: Duplicated config collector",config));
         else {
             MetricCollector<?,?,?,?> collector = creator.apply(config,connector);
-            return collector.validateAndSet(response,holder.getApiCallHolder().lastApiCall(),r->{
+            return collector.validateAndSet(response,r->{
                 METRIC_COLLECTOR_MAP.put(collector.getId(),collector);
                 return Utils.setMessageAndData(Utils.reduceResponseData(response,holder.addAndStarMetricCollector(collector)),collector.getClass().getSimpleName()+" added.",collector.response());
             });
@@ -239,7 +253,7 @@ public abstract class MetricService<
         ApiCollectorHolder collectorHolder = apiCollectorService.getApiCollectorById(config.getApiCollectorId()).orElse(null);
         if(collectorHolder==null)
             return ApiCollectorResponse.factoryError("MetricService.addCollector","ApiCollectorHolder not found by id: "+config.getApiCollectorId(),config);
-        return addToCollectorMap(collectorHolder.monoResponse(),config,connector,creator,collectorHolder);
+        return addToCollectorMapNew(collectorHolder.monoResponse(),config,connector,creator,collectorHolder);
     }
 
     public static Mono<JsonNode> getCollectorById(int collectorId){

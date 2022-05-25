@@ -16,6 +16,7 @@ import java.util.List;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicReference;
+import java.util.function.Function;
 import java.util.function.UnaryOperator;
 import java.util.stream.Collectors;
 
@@ -34,7 +35,8 @@ public abstract class MetricCollector<P,S extends MetricConfig,C extends MetricW
     @Getter
     private final C dbConnector;
     private Disposable disposable;
-    private final AtomicBoolean validate = new AtomicBoolean();
+    private final AtomicBoolean validateData = new AtomicBoolean();
+    private final AtomicBoolean validationDataPass = new AtomicBoolean();
     private final AtomicReference<List<JsonNode>> validationError = new AtomicReference<>();
 
     protected MetricCollector(S config, C dbConnector) {
@@ -49,12 +51,20 @@ public abstract class MetricCollector<P,S extends MetricConfig,C extends MetricW
         dbConnector = null;
     }
 
-    public boolean isValidate(){
-        return validate.get();
+    public boolean isDataValidated(){
+        return validateData.get();
     }
 
-    protected void setValidate(boolean validate){
-        this.validate.set(validate);
+    public boolean isValidateDataPass(){
+        return validationDataPass.get();
+    }
+
+    protected void setValidationDataPass(boolean validationDataPass){
+        this.validationDataPass.set(validationDataPass);
+    }
+
+    protected void setValidationData(boolean validationData){
+        this.validateData.set(validationData);
     }
 
     public abstract T response();
@@ -111,9 +121,12 @@ public abstract class MetricCollector<P,S extends MetricConfig,C extends MetricW
         return isRunning() ? Mono.fromRunnable(this::stop)
                 .then(getWithMessage("stopped")) : getWithMessage("already stopped");
     }
-
-    public <R extends DataResponse<?> & ResponseWithMessage<R>> Mono<R> validateAndSet(Mono<R> response, Mono<JsonNode> data, UnaryOperator<Mono<R>> addIfNotFail){
-        return validateAndDo(response,data,false,addIfNotFail);
+    
+    public <R extends DataResponse<?> & ResponseWithMessage<R>> Mono<R> validateAndSet(Mono<R> response, UnaryOperator<Mono<R>> addIfNotFail){
+        return validateMono().flatMap(l->{
+            if(isValidationFail(l)) return Utils.setMessageAndData(response,"Collector Filed Validation Fail",leaveOnlyAndSetErrorsData(l));
+            else return addIfNotFail.apply(response);
+        });
     }
 
     public <R extends DataResponse<?> & ResponseWithMessage<R>> Mono<R> validateAndRemove(Mono<R> response, Mono<JsonNode> data, UnaryOperator<Mono<R>> removeIfFail){
@@ -128,25 +141,27 @@ public abstract class MetricCollector<P,S extends MetricConfig,C extends MetricW
             } else return data.flatMap(j->{
                 if((j==null || j.isEmpty() || j.has("error"))){
                     return doOnError ? failToCheckWarn(response,j) : doOn.apply(failToCheckWarn(response,j));
-                } else return validateDataMono(j).flatMap(l2->{
-                    validate.set(!isValidationFail(l2));
-                    if(!validate.get()) validationError.set(leaveOnlyAndSetErrorsData(l2));
-                    else validationError.set(null);
-                    Mono<R> r = validate.get() ?
-                            response:
+                } else {
+                    Function<Boolean,Mono<R>> resp = isPass-> isPass ?
+                            response :
                             Utils.setMessageAndData(response,"Collector Data Validation Fail",validationError.get());
-                    return (doOnError && !validate.get()) || (!doOnError && validate.get()) ? doOn.apply(r) : r;
-                });
+                    return Mono.fromRunnable(()->validateDataAndSet(j)).then(
+                            (doOnError && !isValidateDataPass()) || (!doOnError && isValidateDataPass()) ?
+                                    doOn.apply(resp.apply(isValidateDataPass())) : resp.apply(isValidateDataPass()));
+                }
             });
         });
     }
 
     public void validateDataAndSet(JsonNode data){
         List<JsonNode> r = validateData(data);
-        validate.set(!isValidationFail(validateData(data)));
-        if(!validate.get()){
+        validationDataPass.set(!isValidationFail(validateData(data)));
+        if(!validationDataPass.get()){
+            if(isRunning())
+                stop();
             validationError.set(leaveOnlyAndSetErrorsData(r));
         } else validationError.set(null);
+        validateData.set(true);
     }
 
     protected <R extends DataResponse<?> & ResponseWithMessage<R>> Mono<R> failToCheckWarn(Mono<R> response,JsonNode error){

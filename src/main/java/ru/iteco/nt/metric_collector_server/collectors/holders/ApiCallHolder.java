@@ -4,10 +4,10 @@ import com.fasterxml.jackson.databind.JsonNode;
 import lombok.Getter;
 
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.web.reactive.function.client.WebClient;
 import reactor.core.Disposable;
 import reactor.core.publisher.Mono;
 import reactor.util.retry.Retry;
-import ru.iteco.nt.metric_collector_server.collectors.exception.ApiCollectorException;
 import ru.iteco.nt.metric_collector_server.collectors.model.settings.ApiCallConfig;
 import ru.iteco.nt.metric_collector_server.collectors.model.responses.ApiCallResponse;
 import ru.iteco.nt.metric_collector_server.collectors.model.settings.ApiCollectorConfig;
@@ -26,34 +26,7 @@ public class ApiCallHolder extends DataCollector<ApiCallResponse, ApiCallConfig,
 
     public ApiCallHolder(ApiClientHolder apiClientHolder, ApiCallConfig apiCallConfig){
         super(apiCallConfig,isSource.incrementAndGet());
-        Mono<JsonNode> request = apiCallConfig.getMethod().trim().equalsIgnoreCase("get") ?
-                Utils.getWithOnHttpErrorResponseSpec("api call",apiClientHolder.getWebClient().get().uri(apiCallConfig.getUri()).retrieve()).doOnNext(this::setData) :
-                Mono.just(Utils.getError("ApiCallHolder",String.format("Method: %s not implemented", apiCallConfig.getMethod())))
-        ;
-        Retry retry = apiCallConfig.getRetry()>0 && apiCallConfig.getRetryPeriod()>0 ?
-                apiCallConfig.isRetryBackoff() ?
-                        Retry.backoff(apiCallConfig.getRetry(), Duration.ofSeconds(apiCallConfig.getRetryPeriod())) :
-                        Retry.fixedDelay(apiCallConfig.getRetry(),Duration.ofSeconds(apiCallConfig.getRetryPeriod())):
-                null;
-
-
-        request = retry==null? request :
-             request.flatMap(j->{
-                 if(j.has("error")){
-                     if(isNotSameError(j))
-                         setData(j);
-                     return Mono.error(new ApiCollectorException(j));
-                 } else return Mono.just(j);
-             }).retryWhen(retry);
-        this.request = request.onErrorResume(th-> {
-            JsonNode error = Utils.getError("ApiCollectorHolder.collector",th.toString());
-            if(!isFail()){
-                if(isNotSameError(error))
-                    setData(error);
-            }
-            return Mono.just(error);
-        });
-
+        request = getRequest(apiClientHolder).doOnNext(this::setData);
         setDoOnError(Utils.runWithErrorLog(()->{
             log.debug("Do on Error data: {}",getData().getData());
             if(collectorHolder!=null && collectorHolder.isCollecting()){
@@ -79,6 +52,23 @@ public class ApiCallHolder extends DataCollector<ApiCallResponse, ApiCallConfig,
         this.request.subscribe();
     }
 
+    private Mono<JsonNode> getRequest(ApiClientHolder apiClientHolder){
+        if(!getSettings().getMethod().trim().equalsIgnoreCase("get"))
+            return Mono.just(Utils.getError("ApiCallHolder",String.format("Method: %s not implemented", getSettings().getMethod()),getSettings()));
+        WebClient.ResponseSpec response = apiClientHolder.getWebClient().get().uri(getSettings().getUri()).retrieve();
+        if(getSettings().isRetrySet()){
+            return getSettings().isRetryBackoff() ?
+                   Utils.getWithOnHttpErrorResponseSpec(getSettings().getApiCallInfo(),response,Retry.backoff(
+                           getSettings().getRetry()
+                           ,Duration.ofSeconds(getSettings().getRetryPeriod()))
+                           .transientErrors(getSettings().isRetryTransient())) :
+                    Utils.getWithOnHttpErrorResponseSpec(getSettings().getApiCallInfo(),response,Retry.fixedDelay(
+                                    getSettings().getRetry()
+                                    ,Duration.ofSeconds(getSettings().getRetryPeriod()))
+                            .transientErrors(getSettings().isRetryTransient()));
+        } else return Utils.getWithOnHttpErrorResponseSpec(getSettings().getApiCallInfo(),response);
+    }
+
     private Disposable setCheckApiCall(long seconds,Mono<JsonNode> request){
         return request.delayElement(Duration.ofSeconds(seconds)).doOnNext(j->log.debug("CheckApiCall: {}",j)).repeat(this::isFail).subscribe();
     }
@@ -100,6 +90,7 @@ public class ApiCallHolder extends DataCollector<ApiCallResponse, ApiCallConfig,
         if(collectorHolder==null || !collectorHolder.getSettings().equals(apiCollectorConfig)){
             if(collectorHolder!=null) collectorHolder.stop();
             collectorHolder = new ApiCollectorHolder(this, apiCollectorConfig);
+            collectorHolder.start();
         }
         return response();
     }

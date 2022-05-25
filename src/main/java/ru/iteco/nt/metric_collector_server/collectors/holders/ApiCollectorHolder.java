@@ -30,13 +30,13 @@ public class ApiCollectorHolder extends DataCollector<ApiCollectorResponse, ApiC
     public ApiCollectorHolder(ApiCallHolder apiCallHolder, ApiCollectorConfig apiCollectorConfig) {
         super(apiCollectorConfig,isSource.incrementAndGet());
         this.apiCallHolder = apiCallHolder;
-        collector = apiCallHolder.getRequest().delayElement(Duration.ofMillis(apiCollectorConfig.getPeriodMillis())).repeat().filter(j->!j.has("error")).doOnNext(this::setData).share();
+        collector = Flux.concat(apiCallHolder.lastApiCall(),Mono.delay(Duration.ofMillis(apiCollectorConfig.getPeriodMillis())).then(apiCallHolder.getRequest()).repeat()).filter(j->!j.has("error")).doOnNext(this::validateNewMetricCollectors).doOnNext(this::setData).share();
     }
 
     public Mono<ApiCollectorResponse> addAndStarMetricCollector(MetricCollector<?,?,?,?> metricCollector){
         return Mono.fromSupplier(()->{
             metricCollectors.add(metricCollector);
-            return startCollecting();
+            return response();
         });
     }
 
@@ -50,8 +50,12 @@ public class ApiCollectorHolder extends DataCollector<ApiCollectorResponse, ApiC
             if(!isCollecting()) {
                 collecting = collector.subscribe();
             }
-            metricCollectors.stream().filter(MetricCollector::isValidate).filter(c->!c.isRunning()).forEach(c->c.start(Flux.concat(collector)));
         }
+    }
+
+    private void validateNewMetricCollectors(JsonNode data){
+        metricCollectors.stream().filter(m->!m.isDataValidated()).forEach(m->m.validateDataAndSet(data));
+        metricCollectors.stream().filter(m->!m.isRunning()).filter(MetricCollector::isValidateDataPass).forEach(m->m.start(collector));
     }
 
     public void validateMetricCollectors(JsonNode jsonNode){

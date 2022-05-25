@@ -15,7 +15,8 @@ public class InfluxMetricCollectorResponse extends DataResponse<JsonNode> implem
     private final boolean collecting;
     private final WriterResponse<?> writer;
     private String message;
-    private boolean validate;
+    private boolean validateData;
+    private boolean validateDataPass;
     private List<JsonNode> validationError;
 
     public static Mono<InfluxMetricCollectorResponse> factoryError(String source, String message, Object ...objects){

@@ -23,4 +23,13 @@ public class ApiCallConfig {
     private long retryPeriod;
     private boolean retryBackoff;
     private long checkPeriod;
+    private boolean retryTransient;
+
+    public String getApiCallInfo(){
+        return String.format("[%s] %s %s clientId - %s",name,method,uri,clientId);
+    }
+
+    public boolean isRetrySet(){
+        return retryPeriod>0 && retry>0;
+    }
 }

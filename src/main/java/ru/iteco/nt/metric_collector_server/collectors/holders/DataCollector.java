@@ -30,9 +30,11 @@ public abstract class DataCollector<R extends DataResponse<S>,S,B extends DataRe
 
     public synchronized void setData(JsonNode jsonNode){
         boolean lasFail = fail;
-        data = jsonNode;
-        time = System.currentTimeMillis();
         fail = jsonNode.has("error");
+        time = System.currentTimeMillis();
+        if(!lasFail || !fail || !Utils.isSameError(data, jsonNode)){
+            data = jsonNode;
+        }
         log.debug("set data: lasFail: {}, fail: {}, doOnError!=null: {}, doAfterFail!=null:{}",lasFail,fail,doOnError!=null,doAfterError!=null);
         if(fail && !lasFail && doOnError !=null)
             doOnError.run();
@@ -40,13 +42,6 @@ public abstract class DataCollector<R extends DataResponse<S>,S,B extends DataRe
             doAfterError.run();
         }
 
-    }
-
-    public synchronized boolean isNotSameError(JsonNode jsonNode){
-        if(!jsonNode.has("error") || !isFail()) return true;
-        boolean is = jsonNode.get("error").get("errorMessage").equals(data.get("error").get("errorMessage"));
-        log.debug("IS equals {}, cur error errorMessage:\n{}, new error errorMessage:\n{}",is,data.get("error").get("errorMessage"),jsonNode.get("error").get("errorMessage"));
-        return !is;
     }
 
     @SuppressWarnings("unchecked")
@@ -61,10 +56,6 @@ public abstract class DataCollector<R extends DataResponse<S>,S,B extends DataRe
 
     public static ApiData getErrorData(String source,String message,Object ... objects){
         return new ApiData(Utils.getError(source, message, objects),System.currentTimeMillis(),true);
-    }
-
-    public void startOnError(){
-        if(doOnError !=null) doOnError.run();
     }
 
     @Getter

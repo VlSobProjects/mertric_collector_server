@@ -17,7 +17,14 @@ import org.springframework.web.reactive.function.client.ExchangeFilterFunction;
 import org.springframework.web.reactive.function.client.WebClient;
 import org.springframework.web.reactive.function.client.WebClientResponseException;
 import reactor.core.publisher.Mono;
+import reactor.util.retry.Retry;
+import reactor.util.retry.RetryBackoffSpec;
+import reactor.util.retry.RetrySpec;
 import ru.iteco.nt.metric_collector_server.DataResponse;
+import ru.iteco.nt.metric_collector_server.collectors.exception.ApiClientException;
+import ru.iteco.nt.metric_collector_server.collectors.exception.ApiCollectorException;
+import ru.iteco.nt.metric_collector_server.collectors.exception.ApiRetryException;
+import ru.iteco.nt.metric_collector_server.collectors.exception.ApiServerException;
 import ru.iteco.nt.metric_collector_server.influx.model.responses.ResponseWithMessage;
 
 import java.time.Instant;
@@ -43,6 +50,14 @@ public class Utils {
 
     @Setter
     private static Consumer<WebClientResponseException> GLOBAL_REQ_ERR;
+
+    private static final Predicate<Throwable> IS_SERVER_OR_CONNECTION_EXCEPTION = th->!(th instanceof ApiCollectorException) || th instanceof ApiServerException;
+    private static final Predicate<Throwable> IS_SERVER_OR_RETRY_EXCEPTION = th->!(th instanceof ApiCollectorException) || th instanceof ApiRetryException || th instanceof ApiServerException;
+
+
+    private static final BiFunction<Throwable,String,JsonNode> EXCEPTION_TO_JSON = (th,source)-> th instanceof ApiCollectorException ?
+            ((ApiCollectorException)th).getError() :
+            Utils.getServerError(source,th.toString());
 
     public ExchangeFilterFunction logRequest(){
         return ExchangeFilterFunction.ofRequestProcessor(clientRequest -> {
@@ -169,12 +184,21 @@ public class Utils {
         }
     }
 
-    public JsonNode getError(String source,String message,Object ... objects){
+    public JsonNode getError(String source,String message,boolean serverError,Object ... objects){
         return getError(ErrorJson.builder()
                 .data(convert(objects))
                 .errorSource(source)
+                .serverError(serverError)
                 .errorMessage(message)
                 .build());
+    }
+
+    public JsonNode getError(String source,String message,Object ... objects){
+        return getError(source,message,false,objects);
+    }
+
+    public JsonNode getServerError(String source,String message,Object ... objects){
+        return getError(source,message,true,objects);
     }
 
     public JsonNode getWarn(String source,String message,Object ... objects){
@@ -253,10 +277,44 @@ public class Utils {
     }
 
     public Mono<JsonNode> getWithOnHttpErrorResponseSpec(String source, WebClient.ResponseSpec responseSpec){
-        return responseSpec
-                .onStatus(HttpStatus::isError, ClientResponse::createException)
+        return setErrorHandler(source,responseSpec)
                 .bodyToMono(JsonNode.class)
-                .onErrorResume(th->Mono.just(getError(source,th.toString())));
+                .onErrorResume(th->th instanceof ApiCollectorException,th->Mono.just(((ApiCollectorException)th).getError()))
+                .onErrorResume(th->Mono.just(getServerError(source,th.toString())));
+    }
+
+    private WebClient.ResponseSpec setErrorHandler(String source, WebClient.ResponseSpec responseSpec){
+        return responseSpec
+                .onStatus(HttpStatus::is4xxClientError,r->r.bodyToMono(Object.class).switchIfEmpty(Mono.just("No Body")).flatMap(o->Mono.error(new ApiClientException(Utils.getError(source,r.statusCode().toString(),o)))))
+                .onStatus(HttpStatus::isError,r->r.bodyToMono(Object.class).switchIfEmpty(Mono.just("No Body")).flatMap(o->Mono.error(new ApiServerException(Utils.getServerError(source,r.statusCode().toString(),o)))))
+                ;
+    }
+
+    public Mono<JsonNode> getWithOnHttpErrorResponseSpec(String source, WebClient.ResponseSpec responseSpec, RetryBackoffSpec retrySpec){
+        return getWithOnHttpErrorResponseSpec(retrySpec.filter(IS_SERVER_OR_CONNECTION_EXCEPTION).onRetryExhaustedThrow((r,s)-> setFromRetry(source,s))
+                ,source
+                ,responseSpec);
+    }
+
+    public Mono<JsonNode> getWithOnHttpErrorResponseSpec(String source, WebClient.ResponseSpec responseSpec, RetrySpec retrySpec){
+        return getWithOnHttpErrorResponseSpec(retrySpec.filter(IS_SERVER_OR_CONNECTION_EXCEPTION).onRetryExhaustedThrow((r,s)-> setFromRetry(source,s))
+                ,source
+                ,responseSpec);
+    }
+
+    private Mono<JsonNode> getWithOnHttpErrorResponseSpec(Retry retry,String source, WebClient.ResponseSpec responseSpec){
+        return setErrorHandler(source,responseSpec)
+                .bodyToMono(JsonNode.class)
+                .retryWhen(retry)
+                .onErrorResume(th->th instanceof ApiCollectorException,th->Mono.just(((ApiCollectorException)th).getError()))
+                .onErrorResume(th->Mono.just(getServerError(source,th.toString())));
+    }
+
+    private ApiCollectorException setFromRetry(String source,Retry.RetrySignal retrySignal){
+        Throwable th = retrySignal.failure();
+        if(th instanceof  ApiCollectorException){
+            return new ApiRetryException(((ApiCollectorException)th).getError(), retrySignal.totalRetries(), retrySignal.totalRetriesInARow());
+        } else return new ApiRetryException(Utils.getServerError(source,"Unhanded Exception: "+th), retrySignal.totalRetries(), retrySignal.totalRetriesInARow());
     }
 
     public JsonNode getFromJsonNode(JsonNode jsonNode,String expression){
@@ -402,5 +460,18 @@ public class Utils {
             }
         };
     }
+    public synchronized boolean isSameError(JsonNode jsonError1,JsonNode jsonError2){
+        if(jsonError1.has("error") && jsonError2.has("error")){
+            try {
+                ErrorJson err1 = getFromJsonNode(jsonError1.get("error"),ErrorJson.class);
+                ErrorJson err2 = getFromJsonNode(jsonError2.get("error"),ErrorJson.class);
+                return err1.isSameMessageAndSource(err2);
+            } catch (Exception e){
+                log.error("Fail to convert ErrorJson",e);
+                return false;
+            }
+        } else return false;
+    }
+
 
 }
