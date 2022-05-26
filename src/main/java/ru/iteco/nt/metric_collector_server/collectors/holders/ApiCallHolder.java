@@ -3,59 +3,74 @@ package ru.iteco.nt.metric_collector_server.collectors.holders;
 import com.fasterxml.jackson.databind.JsonNode;
 import lombok.Getter;
 
+import lombok.extern.slf4j.Slf4j;
+import org.springframework.web.reactive.function.client.WebClient;
 import reactor.core.Disposable;
 import reactor.core.publisher.Mono;
 import reactor.util.retry.Retry;
-import ru.iteco.nt.metric_collector_server.collectors.model.responses.ApiDataResponse;
-import ru.iteco.nt.metric_collector_server.collectors.model.settings.ApiCall;
+import ru.iteco.nt.metric_collector_server.collectors.model.settings.ApiCallConfig;
 import ru.iteco.nt.metric_collector_server.collectors.model.responses.ApiCallResponse;
-import ru.iteco.nt.metric_collector_server.collectors.model.settings.ApiCollector;
-import ru.iteco.nt.metric_collector_server.collectors.web_client.Utils;
+import ru.iteco.nt.metric_collector_server.collectors.model.settings.ApiCollectorConfig;
+import ru.iteco.nt.metric_collector_server.utils.Utils;
 
 import java.time.Duration;
 import java.util.concurrent.atomic.AtomicInteger;
-import java.util.function.Consumer;
 
+@Slf4j
 @Getter
-public class ApiCallHolder extends DataCollector<ApiCallResponse,ApiCall,ApiCallResponse.ApiCallResponseBuilder<ApiCallResponse,?>> {
+public class ApiCallHolder extends DataCollector<ApiCallResponse, ApiCallConfig,ApiCallResponse.ApiCallResponseBuilder<ApiCallResponse,?>> {
     private static final AtomicInteger isSource = new AtomicInteger();
     private ApiCollectorHolder collectorHolder;
     private final Mono<JsonNode> request;
-    private final Retry retry;
     private Disposable checkApiCall;
 
+    public ApiCallHolder(ApiClientHolder apiClientHolder, ApiCallConfig apiCallConfig){
+        super(apiCallConfig,isSource.incrementAndGet());
+        request = getRequest(apiClientHolder).doOnNext(this::setData);
+        setDoOnError(Utils.runWithErrorLog(()->{
+            log.debug("Do on Error data: {}",getData().getData());
+            if(collectorHolder!=null && collectorHolder.isCollecting()){
+                collectorHolder.stop();
+                log.debug("Do on Error data: collectorHolder is not null and isCollecting: {}",collectorHolder.isCollecting());
+            }
+            log.debug("Do on Error isChecking: {} apiCallConfig.getCheckPeriod(): {}",isChecking(),apiCallConfig.getCheckPeriod());
+            if(!isChecking() && apiCallConfig.getCheckPeriod()>0){
+                log.debug("set up setCheckApiCall: {} sec",apiCallConfig.getCheckPeriod());
+                checkApiCall = setCheckApiCall(apiCallConfig.getCheckPeriod(),this.request);
+            }
+        }));
+        setDoAfterError(Utils.runWithErrorLog(()->{
+            log.debug("Do After Error data: {}",getData().getData());
+            if(isChecking()) checkApiCall.dispose();
+            if(collectorHolder!=null) {
+                log.debug("Do After Error data: collectorHolder is not null and isCollecting: {}",collectorHolder.isCollecting());
+                collectorHolder.validateMetricCollectors(getData().getData());
+                collectorHolder.start();
+            }
 
+        }));
+        this.request.subscribe();
+    }
 
-
-    public ApiCallHolder(ApiClientHolder apiClientHolder, ApiCall apiCall){
-        super(apiCall,isSource.incrementAndGet());
-        request = apiCall.getMethod().trim().equalsIgnoreCase("get") ?
-                Utils.getWithOnHttpErrorResponseSpec("api call",apiClientHolder.getWebClient().get().uri(apiCall.getUri()).retrieve()) :
-                Mono.just(Utils.getError("ApiCallHolder",String.format("Method: %s not implemented",apiCall.getMethod())))
-        ;
-        retry = apiCall.getRetry()>0 && apiCall.getRetryPeriod()>0 ?
-                apiCall.isRetryBackoff() ?
-                        Retry.backoff(apiCall.getRetry(), Duration.ofSeconds(apiCall.getRetryPeriod())) :
-                        Retry.fixedDelay(apiCall.getRetry(),Duration.ofSeconds(apiCall.getRetryPeriod())):
-                null;
-        if(apiCall.getCheckPeriod()>0){
-            setStartOnError(()->{
-                        if(!isChecking()){
-                            checkApiCall = setCheckApiCall(apiCall.getCheckPeriod(),request);
-                        }
-                    }
-            );
-            getStartOnError().run();
-        }
-
-
+    private Mono<JsonNode> getRequest(ApiClientHolder apiClientHolder){
+        if(!getSettings().getMethod().trim().equalsIgnoreCase("get"))
+            return Mono.just(Utils.getError("ApiCallHolder",String.format("Method: %s not implemented", getSettings().getMethod()),getSettings()));
+        WebClient.ResponseSpec response = apiClientHolder.getWebClient().get().uri(getSettings().getUri()).retrieve();
+        if(getSettings().isRetrySet()){
+            return getSettings().isRetryBackoff() ?
+                   Utils.getWithOnHttpErrorResponseSpec(getSettings().getApiCallInfo(),response,Retry.backoff(
+                           getSettings().getRetry()
+                           ,Duration.ofSeconds(getSettings().getRetryPeriod()))
+                           .transientErrors(getSettings().isRetryTransient())) :
+                    Utils.getWithOnHttpErrorResponseSpec(getSettings().getApiCallInfo(),response,Retry.fixedDelay(
+                                    getSettings().getRetry()
+                                    ,Duration.ofSeconds(getSettings().getRetryPeriod()))
+                            .transientErrors(getSettings().isRetryTransient()));
+        } else return Utils.getWithOnHttpErrorResponseSpec(getSettings().getApiCallInfo(),response);
     }
 
     private Disposable setCheckApiCall(long seconds,Mono<JsonNode> request){
-        return request.delayElement(Duration.ofSeconds(seconds)).repeat(this::isFail).doOnComplete(()->{
-            if(collectorHolder!=null)
-                collectorHolder.startCollecting();
-        }).subscribe(this::setData);
+        return request.delayElement(Duration.ofSeconds(seconds)).doOnNext(j->log.debug("CheckApiCall: {}",j)).repeat(this::isFail).subscribe();
     }
 
     private boolean isChecking(){
@@ -71,9 +86,11 @@ public class ApiCallHolder extends DataCollector<ApiCallResponse,ApiCall,ApiCall
                 .isChecking(isChecking());
     }
 
-    public synchronized ApiCallResponse setCollector(ApiCollector apiCollector){
-        if(collectorHolder==null){
-            collectorHolder = new ApiCollectorHolder(this,apiCollector);
+    public synchronized ApiCallResponse setCollector(ApiCollectorConfig apiCollectorConfig){
+        if(collectorHolder==null || !collectorHolder.getSettings().equals(apiCollectorConfig)){
+            if(collectorHolder!=null) collectorHolder.stop();
+            collectorHolder = new ApiCollectorHolder(this, apiCollectorConfig);
+            collectorHolder.start();
         }
         return response();
     }
@@ -86,20 +103,20 @@ public class ApiCallHolder extends DataCollector<ApiCallResponse,ApiCall,ApiCall
     }
 
     public Mono<ApiCallResponse> getApiResponse(){
-        return request.map(j->{
-            setData(j);
-            return response();
-        });
+        return request.then(monoResponse());
     }
 
     public boolean isCollector(int collectorId){
         return collectorHolder!=null && collectorHolder.getId()==collectorId;
     }
 
+    public boolean isCollector(){
+        return collectorHolder!=null;
+    }
+
     public synchronized Mono<ApiCallResponse> removeCollector(){
         deleteCollector();
         return monoResponse();
-
     }
 
     private void deleteCollector(){
@@ -115,6 +132,11 @@ public class ApiCallHolder extends DataCollector<ApiCallResponse,ApiCall,ApiCall
         return getId();
     }
 
+    public Mono<JsonNode> lastApiCall(){
+        ApiData data = getData();
+        if(data.getData()==null) return request;
+        else return Mono.just(data.getData());
+    }
 
     public Mono<ApiCallResponse> stopCheckApiCall(){
         stopCheck();
@@ -126,8 +148,6 @@ public class ApiCallHolder extends DataCollector<ApiCallResponse,ApiCall,ApiCall
             checkApiCall.dispose();
             checkApiCall = null;
         }
-
     }
-
 
 }

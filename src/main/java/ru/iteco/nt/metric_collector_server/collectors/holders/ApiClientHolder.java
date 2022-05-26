@@ -3,11 +3,9 @@ package ru.iteco.nt.metric_collector_server.collectors.holders;
 import lombok.Getter;
 import org.springframework.web.reactive.function.client.WebClient;
 import reactor.core.publisher.Mono;
-import ru.iteco.nt.metric_collector_server.collectors.holders.ApiCallHolder;
-import ru.iteco.nt.metric_collector_server.collectors.model.responses.ApiDataResponse;
-import ru.iteco.nt.metric_collector_server.collectors.model.settings.ApiCall;
+import ru.iteco.nt.metric_collector_server.collectors.model.settings.ApiCallConfig;
 import ru.iteco.nt.metric_collector_server.collectors.model.responses.ApiCallResponse;
-import ru.iteco.nt.metric_collector_server.collectors.model.settings.ApiClient;
+import ru.iteco.nt.metric_collector_server.collectors.model.settings.ApiClientConfig;
 import ru.iteco.nt.metric_collector_server.collectors.model.responses.ApiClientResponse;
 
 import java.util.Map;
@@ -17,14 +15,14 @@ import java.util.concurrent.atomic.AtomicInteger;
 import java.util.stream.Collectors;
 
 @Getter
-public class ApiClientHolder extends ApiHolder<ApiClientResponse,ApiClient,ApiClientResponse.ApiClientResponseBuilder<ApiClientResponse,?>> {
+public class ApiClientHolder extends ApiHolder<ApiClientResponse, ApiClientConfig,ApiClientResponse.ApiClientResponseBuilder<ApiClientResponse,?>> {
     private static final AtomicInteger isSource = new AtomicInteger();
     private final WebClient webClient;
     private final Map<Integer, ApiCallHolder> apiCallMap = new ConcurrentHashMap<>();
 
-    public ApiClientHolder(WebClient.Builder builder,ApiClient apiClient){
-        super(apiClient,isSource.incrementAndGet());
-        this.webClient = apiClient.getClient(builder);
+    public ApiClientHolder(WebClient.Builder builder, ApiClientConfig apiClientConfig){
+        super(apiClientConfig,isSource.incrementAndGet());
+        this.webClient = apiClientConfig.getClient(builder);
 
     }
 
@@ -50,9 +48,9 @@ public class ApiClientHolder extends ApiHolder<ApiClientResponse,ApiClient,ApiCl
         return apiCallMap.containsKey(apiCallId);
     }
 
-    public Mono<ApiCallResponse> addApiCall(ApiCall apiCall){
+    public Mono<ApiCallResponse> addApiCall(ApiCallConfig apiCallConfig){
         return Mono.fromSupplier(()->{
-            ApiCallHolder holder = new ApiCallHolder(this,apiCall);
+            ApiCallHolder holder = new ApiCallHolder(this, apiCallConfig);
             apiCallMap.put(holder.getId(),holder);
             return holder.response();
         });

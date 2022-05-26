@@ -1,4 +1,4 @@
-package ru.iteco.nt.metric_collector_server.collectors.web_client;
+package ru.iteco.nt.metric_collector_server.utils;
 
 import com.fasterxml.jackson.databind.JsonNode;
 import lombok.AllArgsConstructor;
@@ -6,7 +6,6 @@ import lombok.Builder;
 import lombok.Data;
 import lombok.NoArgsConstructor;
 
-import java.time.LocalDateTime;
 
 @NoArgsConstructor
 @AllArgsConstructor
@@ -19,4 +18,9 @@ public class ErrorJson {
     private String errorMessage;
     private JsonNode data;
     private boolean serverError;
+
+    public boolean isSameMessageAndSource(ErrorJson err){
+        if(err==null) return false;
+        return errorSource.equals(err.errorSource) && errorMessage.equals(err.errorMessage);
+    }
 }

@@ -5,28 +5,42 @@ import lombok.AccessLevel;
 import lombok.Getter;
 import lombok.RequiredArgsConstructor;
 import lombok.Setter;
-import ru.iteco.nt.metric_collector_server.collectors.model.responses.ApiDataResponse;
-import ru.iteco.nt.metric_collector_server.collectors.web_client.Utils;
+import lombok.extern.slf4j.Slf4j;
+import ru.iteco.nt.metric_collector_server.DataResponse;
+import ru.iteco.nt.metric_collector_server.utils.Utils;
 
+import java.util.Comparator;
+
+@Slf4j
 @Getter
-public abstract class DataCollector<R extends ApiDataResponse<S>,S,B extends ApiDataResponse.ApiDataResponseBuilder<S,R,?>> extends ApiHolder<R,S,B> {
+public abstract class DataCollector<R extends DataResponse<S>,S,B extends DataResponse.DataResponseBuilder<S,R,?>> extends ApiHolder<R,S,B> {
 
     private JsonNode data;
     private long time;
     private boolean fail;
     @Setter(AccessLevel.PROTECTED)
-    private Runnable startOnError;
+    private Runnable doOnError;
+    @Setter(AccessLevel.PROTECTED)
+    private Runnable doAfterError;
 
     protected DataCollector(S settings, int id) {
         super(settings, id);
     }
 
+
     public synchronized void setData(JsonNode jsonNode){
-        data = jsonNode;
-        time = System.currentTimeMillis();
+        boolean lasFail = fail;
         fail = jsonNode.has("error");
-        if(fail && startOnError!=null)
-            startOnError.run();
+        time = System.currentTimeMillis();
+        if(!lasFail || !fail || !Utils.isSameError(data, jsonNode)){
+            data = jsonNode;
+        }
+        log.debug("set data: lasFail: {}, fail: {}, doOnError!=null: {}, doAfterFail!=null:{}",lasFail,fail,doOnError!=null,doAfterError!=null);
+        if(fail && !lasFail && doOnError !=null)
+            doOnError.run();
+        if(!fail && lasFail && doAfterError !=null){
+            doAfterError.run();
+        }
 
     }
 
@@ -50,5 +64,9 @@ public abstract class DataCollector<R extends ApiDataResponse<S>,S,B extends Api
         private final JsonNode data;
         private final long time;
         private final boolean fail;
+
+        public JsonNode getNotNullData(){
+            return data == null ? Utils.getError("DataCollector","daya is null") : data;
+        }
     }
 }

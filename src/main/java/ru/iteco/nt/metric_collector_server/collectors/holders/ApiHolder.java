@@ -1,17 +1,14 @@
 package ru.iteco.nt.metric_collector_server.collectors.holders;
 
-import lombok.AccessLevel;
 import lombok.Getter;
-import lombok.experimental.SuperBuilder;
 import reactor.core.publisher.Mono;
-import ru.iteco.nt.metric_collector_server.collectors.model.responses.ApiDataResponse;
-import ru.iteco.nt.metric_collector_server.collectors.web_client.Utils;
+import ru.iteco.nt.metric_collector_server.DataResponse;
+import ru.iteco.nt.metric_collector_server.utils.Utils;
 
-import java.util.function.Consumer;
-import java.util.function.UnaryOperator;
+import java.util.Optional;
 
 @Getter
-public abstract class ApiHolder<R extends ApiDataResponse<S>,S,B extends ApiDataResponse.ApiDataResponseBuilder<S,R,?>> {
+public abstract class ApiHolder<R extends DataResponse<S>,S,B extends DataResponse.DataResponseBuilder<S,R,?>> {
 
     private final S settings;
     private final int id;
@@ -40,5 +37,8 @@ public abstract class ApiHolder<R extends ApiDataResponse<S>,S,B extends ApiData
         return Mono.fromSupplier(this::response);
     }
 
+    public Mono<R> errorIfExist(S config){
+        return settings.equals(config) ? Mono.fromSupplier(()->getBuilder().data(Utils.getError(getClass().getSimpleName(),"duplicated configs",settings,config)).build()) : null;
+    }
 
 }

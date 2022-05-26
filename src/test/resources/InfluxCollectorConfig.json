@@ -1,0 +1,58 @@
+{
+  "apiCollectorId": 0,
+  "influxDbId": 0,
+  "measurement": "test",
+  "fields": [
+    {
+      "name": "system",
+      "tag": true,
+      "value": "TestSystem"
+    },
+    {
+      "path": "/project",
+      "name": "project",
+      "tag": true
+    },
+    {
+      "path": "/pods",
+      "name": "testField",
+      "tag": true,
+      "value": "TestFieldValue",
+      "children": [
+        {
+          "path": "/name",
+          "name": "pod",
+          "tag": true
+        },
+        {
+          "path": "/containers",
+          "children": [
+            {
+              "path": "/name",
+              "name": "container",
+              "tag": true
+            },
+            {
+              "path": "/metrics",
+              "children": [
+                {
+                  "path": "/name",
+                  "name": "metric",
+                  "tag": true
+                },
+                {
+                  "path": "/data/time",
+                  "time": true
+                },
+                {
+                  "path": "/data/value",
+                  "name": "value"
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}

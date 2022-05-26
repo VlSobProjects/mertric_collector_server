@@ -1,5 +1,6 @@
 package ru.iteco.nt.metric_collector_server.collectors;
 
+import com.fasterxml.jackson.databind.node.ObjectNode;
 import lombok.*;
 
 import lombok.extern.slf4j.Slf4j;
@@ -10,22 +11,17 @@ import org.springframework.stereotype.Service;
 import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
 
-import ru.iteco.nt.metric_collector_server.collectors.holders.ApiCallHolder;
-import ru.iteco.nt.metric_collector_server.collectors.holders.ApiClientHolder;
-import ru.iteco.nt.metric_collector_server.collectors.holders.ApiCollectorHolder;
-import ru.iteco.nt.metric_collector_server.collectors.holders.DataCollector;
+import ru.iteco.nt.metric_collector_server.collectors.holders.*;
 import ru.iteco.nt.metric_collector_server.collectors.model.responses.ApiCallResponse;
 import ru.iteco.nt.metric_collector_server.collectors.model.responses.ApiClientResponse;
 import ru.iteco.nt.metric_collector_server.collectors.model.responses.ApiCollectorResponse;
-import ru.iteco.nt.metric_collector_server.collectors.model.settings.ApiCall;
-import ru.iteco.nt.metric_collector_server.collectors.model.settings.ApiClient;
-import ru.iteco.nt.metric_collector_server.collectors.model.settings.ApiCollector;
+import ru.iteco.nt.metric_collector_server.collectors.model.settings.ApiCallConfig;
+import ru.iteco.nt.metric_collector_server.collectors.model.settings.ApiClientConfig;
+import ru.iteco.nt.metric_collector_server.collectors.model.settings.ApiCollectorConfig;
+import ru.iteco.nt.metric_collector_server.utils.Utils;
 
 
-import java.time.Duration;
-import java.util.List;
-import java.util.Map;
-import java.util.Optional;
+import java.util.*;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.function.Function;
 import java.util.function.Predicate;
@@ -38,41 +34,39 @@ public class ApiCollectorService {
 
     private final ApiClientService apiClientService;
 
-    private final Map<Integer, ApiClientHolder> clientMap = new ConcurrentHashMap<>();
+    private static final Map<Integer, ApiClientHolder> CLIENT_MAP = new ConcurrentHashMap<>();
 
-
-
-    public Mono<ApiClientResponse> setApiClient(ApiClient apiClient){
-        return Mono.fromSupplier(()->new ApiClientHolder(apiClientService.getBuilder(),apiClient))
-                .doOnNext(h->clientMap.put(h.getId(),h))
-                .map(ApiClientHolder::response);
+    public Mono<ApiClientResponse> setApiClient(ApiClientConfig apiClientConfig){
+        return getErrorIfExist(apiClientConfig).orElseGet(()->Mono.fromSupplier(()->new ApiClientHolder(apiClientService.getBuilder(), apiClientConfig))
+                .doOnNext(h-> CLIENT_MAP.put(h.getId(),h))
+                .map(ApiClientHolder::response)
+        );
     }
 
     public Mono<ApiClientResponse> getApiClientById(int clientId){
-        return Optional.ofNullable(clientMap.get(clientId)).map(ApiClientHolder::monoResponse)
+        return Optional.ofNullable(CLIENT_MAP.get(clientId)).map(ApiClientHolder::monoResponse)
                 .orElseGet(()->ApiClientResponse.factoryError("ApiCollectorService.getApiClientById","Api client id: "+clientId+" not found"));
     }
 
     public Mono<List<ApiClientResponse>> getAll(){
-        return Mono.fromSupplier(()->clientMap.values().stream().map(ApiClientHolder::response).collect(Collectors.toList()));
+        return Mono.fromSupplier(()-> CLIENT_MAP.values().stream().map(ApiClientHolder::response).collect(Collectors.toList()));
     }
 
     public Mono<List<ApiClientResponse>> deleteClientById(int clientId){
-        Optional.ofNullable(clientMap.remove(clientId)).ifPresent(ApiClientHolder::deleteAll);
+        Optional.ofNullable(CLIENT_MAP.remove(clientId)).ifPresent(ApiClientHolder::deleteAll);
         return getAll();
     }
 
     public Mono<ApiClientResponse> deleteCallById(int apiCallId){
-        return clientMap.values().stream().filter(c->c.isApiCall(apiCallId)).findFirst().map(c->c.removeApiCallById(apiCallId))
+        return CLIENT_MAP.values().stream().filter(c->c.isApiCall(apiCallId)).findFirst().map(c->c.removeApiCallById(apiCallId))
                 .orElseGet(()->ApiClientResponse.factoryError("ApiCollectorService.deleteCallById","Api call id: "+apiCallId+" not found"));
     }
 
-
-
-    public Mono<ApiCallResponse> setApiCall(ApiCall apiCall){
-        return Optional.ofNullable(clientMap.get(apiCall.getClientId()))
-                .map(h->h.addApiCall(apiCall))
-                .orElseGet(()->getErrorApiCall("client",apiCall.getClientId()));
+    public Mono<ApiCallResponse> setApiCall(ApiCallConfig apiCallConfig){
+        return Optional.ofNullable(CLIENT_MAP.get(apiCallConfig.getClientId()))
+                .map(cl->getErrorIfExist(cl.getId(),apiCallConfig)
+                        .orElseGet(()->cl.addApiCall(apiCallConfig))
+                ).orElseGet(()->getErrorApiCall("client", apiCallConfig.getClientId()));
     }
 
     public Mono<ApiCallResponse> checkApiClientById(int apiCallId){
@@ -95,21 +89,23 @@ public class ApiCollectorService {
         return getApiCallResponse(apiCallId,ApiCallHolder::removeCollector);
     }
 
-    public Mono<ApiCallResponse> setCollectorById(int apiCallId, ApiCollector apiCollector){
-        return getApiCallResponse(apiCallId,call->Mono.fromSupplier(()->call.setCollector(apiCollector)));
+    public Mono<ApiCallResponse> setCollectorById(int apiCallId, ApiCollectorConfig apiCollectorConfig){
+        return getErrorIfExist(apiCallId,apiCollectorConfig).orElseGet(()->getApiClientHolder(apiCallId)
+                .map(h-> Mono.fromSupplier(()->h.setCollector(apiCollectorConfig)))
+                .orElseGet(()->getErrorApiCall("client", apiCallId))
+        );
     }
-
 
     public Mono<ApiCollectorResponse> startCollectorById(int collectorId){
         return getApiCollectorById(collectorId)
                 .map(coll->Mono.fromSupplier(coll::startCollecting))
-                .orElse(getErrorApiCollector("collector",collectorId));
+                .orElse(getErrorApiCollector(collectorId));
     }
 
     public Mono<ApiCollectorResponse> stopCollectorById(int collectorId){
         return getApiCollectorById(collectorId)
                 .map(coll->Mono.fromSupplier(coll::stopCollecting))
-                .orElse(getErrorApiCollector("collector",collectorId));
+                .orElse(getErrorApiCollector(collectorId));
     }
 
     public Mono<ApiCallResponse> deleteCollectorById(int collectorId){
@@ -118,15 +114,16 @@ public class ApiCollectorService {
                 .orElse(getErrorApiCall("collector",collectorId));
     }
 
-
-    public Mono<Void> deleteAll(){
+    public static Mono<Void> deleteAll(){
         return Mono.fromRunnable(()->{
-            clientMap.values().forEach(ApiClientHolder::deleteAll);
-            clientMap.clear();
+            CLIENT_MAP.values().forEach(ApiClientHolder::deleteAll);
+            CLIENT_MAP.clear();
         });
-
     }
 
+    public static Mono<List<ApiClientResponse>> getAllClients(){
+        return Mono.fromSupplier(()->CLIENT_MAP.values().stream().map(ApiHolder::response).collect(Collectors.toList()));
+    }
 
     public Flux<DataCollector.ApiData> getCollectorData(int collectorId, long seconds){
         return getApiCollectorById(collectorId)
@@ -134,9 +131,7 @@ public class ApiCollectorService {
                 .orElseGet(()->Flux.just(DataCollector.getErrorData("ApiCollectorService.getCollectorData","ApiCollector not found by id: "+collectorId)));
     }
 
-
-
-    private Optional<ApiCollectorHolder> getApiCollectorById(int collectorId){
+    public Optional<ApiCollectorHolder> getApiCollectorById(int collectorId){
         return getFirstApiClientHolder(c->c.isCollector(collectorId)).map(ApiCallHolder::getCollectorHolder);
     }
 
@@ -147,7 +142,7 @@ public class ApiCollectorService {
     }
 
     private Optional<ApiCallHolder> getFirstApiClientHolder(Predicate<ApiCallHolder> predicate){
-        return clientMap.values()
+        return CLIENT_MAP.values()
                 .stream()
                 .flatMap(c->c.getApiCallMap().values().stream())
                 .filter(predicate)
@@ -162,8 +157,26 @@ public class ApiCollectorService {
         return ApiCallResponse.factoryError("ApiCollectorService",String.format("Api %s not found by id: %s",notFoundName,id));
     }
 
-    private static Mono<ApiCollectorResponse> getErrorApiCollector(String notFoundName,int id){
-        return ApiCollectorResponse.factoryError("ApiCollectorService",String.format("Api %s by id: %s",notFoundName,id));
+    private static Mono<ApiCollectorResponse> getErrorApiCollector(int id){
+        return ApiCollectorResponse.factoryError("ApiCollectorService",String.format("Api collector not found by by id: %s",id));
+    }
+
+    private Optional<Mono<ApiClientResponse>> getErrorIfExist(ApiClientConfig config){
+        return CLIENT_MAP.values().stream().map(c->c.errorIfExist(config)).filter(Objects::nonNull).findFirst();
+    }
+
+    private Optional<Mono<ApiCallResponse>> getErrorIfExist(int apiCallId,ApiCallConfig config){
+        return getApiClientHolder(apiCallId).map(h->h.errorIfExist(config));
+    }
+
+    private Optional<Mono<ApiCallResponse>> getErrorIfExist(int apiCallId,ApiCollectorConfig config){
+        return getApiClientHolder(apiCallId)
+                .map(h->h.getCollectorHolder()==null? null :
+                        Optional.ofNullable(h.getCollectorHolder().errorIfExist(config))
+                                .map(m->m.flatMap(ce->
+                                        Utils.modifyData(ApiCallResponse.factoryError("ApiCollectorService","duplicated ApiCollectorConfig"),j->((ObjectNode)j.get("error")).set("data",ce.getData().get("error").get("data")))
+                                )).orElse(null)
+                );
     }
 
 }
