@@ -33,7 +33,7 @@ public class ApiCollectorHolder extends DataCollector<ApiCollectorResponse, ApiC
         collector = Flux.concat(apiCallHolder.lastApiCall(),Mono.delay(Duration.ofMillis(apiCollectorConfig.getPeriodMillis())).then(apiCallHolder.getRequest()).repeat()).filter(j->!j.has("error")).doOnNext(this::validateNewMetricCollectors).doOnNext(this::setData).share();
     }
 
-    public Mono<ApiCollectorResponse> addAndStarMetricCollector(MetricCollector<?,?,?,?> metricCollector){
+    public Mono<ApiCollectorResponse> addMetricCollector(MetricCollector<?,?,?,?> metricCollector){
         return Mono.fromSupplier(()->{
             metricCollectors.add(metricCollector);
             return response();
@@ -90,7 +90,7 @@ public class ApiCollectorHolder extends DataCollector<ApiCollectorResponse, ApiC
         return (ApiCollectorResponse.ApiCollectorResponseBuilder<ApiCollectorResponse, ?>)
                 ApiCollectorResponse
                         .builder()
-                        .metricCollectors(metricCollectors.stream().map(MetricCollector::response).collect(Collectors.toList()))
+                        .metricCollectors(metricCollectors.stream().map(MetricCollector::responseWithError).collect(Collectors.toList()))
                         .collecting(isCollecting())
                 ;
     }

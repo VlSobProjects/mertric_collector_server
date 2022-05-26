@@ -27,7 +27,7 @@ public abstract class DataResponse<S> {
     }
 
     public void dataArray(Object...objects){
-        if(objects.length==0) return;
+        if(objects==null || objects.length==0) return;
         List<JsonNode> list = new ArrayList<>();
         Utils.collectData(list,objects);
         if(list.size()==1) data = list.get(0);

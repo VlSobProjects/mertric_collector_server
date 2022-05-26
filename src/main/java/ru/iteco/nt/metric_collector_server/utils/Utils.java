@@ -407,6 +407,7 @@ public class Utils {
     }
 
     public void collectData(Collection<JsonNode> list,Predicate<JsonNode> filter ,Object...objects){
+        if(objects==null) return;
         if(objects.length==1){
             if(objects[0] instanceof Collection){
                 ((Collection<?>)objects[0]).forEach(o->collectData(list,filter,o));

@@ -56,7 +56,7 @@ public abstract class MetricService<
         return Mono.fromSupplier(()->METRIC_WRITER_MAP.values().stream().map(MetricWriter::response).collect(Collectors.toList()));
     }
     public static Mono<List<DataResponse<?>>> getAllCollectors(){
-        return Mono.fromSupplier(()->METRIC_COLLECTOR_MAP.values().stream().map(MetricCollector::response).collect(Collectors.toList()));
+        return Mono.fromSupplier(()->METRIC_COLLECTOR_MAP.values().stream().map(MetricCollector::responseWithError).collect(Collectors.toList()));
     }
     public static Mono<Void> stopAll(){
         return Mono.fromRunnable(()->{
@@ -126,6 +126,17 @@ public abstract class MetricService<
                 ).orElseGet(()->getErrorGroupCollector("MetricCollectorGroup not found by id: "+groupId));
     }
 
+    public Mono<RG> getValidationFailCollectorsFromGroup(int groupId){
+        return getCollectorGroupFromMap(groupId)
+                .map(G::getValidateFail)
+                .orElseGet(()->getErrorGroupCollector("MetricCollectorGroup not found by id: "+groupId));
+    }
+    public Mono<RG> removeValidationFailCollectorsFromGroup(int groupId){
+        return getCollectorGroupFromMap(groupId)
+                .map(G::removeValidateFail)
+                .orElseGet(()->getErrorGroupCollector("MetricCollectorGroup not found by id: "+groupId));
+    }
+
     public Mono<RC> stopSingleCollectorById(int collectorId){
         return getCollectorFromMap(collectorId)
                 .map(MetricCollector::stopCollecting)
@@ -139,6 +150,15 @@ public abstract class MetricService<
                         .map(h->c.startCollecting(h.getCollector()))
                 ).orElseGet(()->getErrorCollector("MetricCollectorGroup not found by id: "+collectorId));
     }
+
+    public static Mono<List<DataResponse<?>>> getValidationFailCollectors(){
+        return Mono.fromSupplier(()->METRIC_COLLECTOR_MAP.values().stream().filter(MetricCollector.VALIDATION_FAIL).map(MetricCollector::responseWithError).collect(Collectors.toList()));
+    }
+
+    public synchronized static Mono<List<DataResponse<?>>> removeValidationFailCollectors(){
+        return Mono.fromSupplier(()->METRIC_COLLECTOR_MAP.entrySet().stream().filter(e->MetricCollector.VALIDATION_FAIL.test(e.getValue())).map(e->METRIC_COLLECTOR_MAP.remove(e.getKey()).responseWithError()).collect(Collectors.toList()));
+    }
+
 
     public Mono<RG> validateGroup(int groupId){
         return getCollectorGroupFromMap(groupId)
@@ -208,20 +228,6 @@ public abstract class MetricService<
                 .map(w-> (W) w);
     }
 
-//    private static  <R extends DataResponse<?> & ResponseWithMessage<R>,T extends MetricConfig,W extends MetricWriter<?,?,?,?>> Mono<R> addToCollectorMap(Mono<R> response, T config, W connector, BiFunction<T,W, MetricCollector<?,?,?,?>> creator, ApiCollectorHolder holder) {
-//        if(METRIC_COLLECTOR_MAP.values().stream().anyMatch(c->c.getConfig().equals(config)))
-//            return Utils.setData(
-//                    response
-//                    ,Utils.getError("MetricService","Error: Duplicated config collector",config));
-//        else {
-//            MetricCollector<?,?,?,?> collector = creator.apply(config,connector);
-//            return collector.validateAndSet(response,holder.getApiCallHolder().lastApiCall(),r->{
-//                METRIC_COLLECTOR_MAP.put(collector.getId(),collector);
-//                return Utils.setMessageAndData(Utils.reduceResponseData(response,holder.addAndStarMetricCollector(collector)),collector.getClass().getSimpleName()+" added.",collector.response());
-//            });
-//        }
-//    }
-
     private static  <R extends DataResponse<?> & ResponseWithMessage<R>,T extends MetricConfig,W extends MetricWriter<?,?,?,?>> Mono<R> addToCollectorMapNew(Mono<R> response, T config, W connector, BiFunction<T,W, MetricCollector<?,?,?,?>> creator, ApiCollectorHolder holder) {
         if(METRIC_COLLECTOR_MAP.values().stream().anyMatch(c->c.getConfig().equals(config)))
             return Utils.setData(
@@ -231,7 +237,7 @@ public abstract class MetricService<
             MetricCollector<?,?,?,?> collector = creator.apply(config,connector);
             return collector.validateAndSet(response,r->{
                 METRIC_COLLECTOR_MAP.put(collector.getId(),collector);
-                return Utils.setMessageAndData(Utils.reduceResponseData(response,holder.addAndStarMetricCollector(collector)),collector.getClass().getSimpleName()+" added.",collector.response());
+                return Utils.setMessageAndData(Utils.reduceResponseData(response,holder.addMetricCollector(collector)),collector.getClass().getSimpleName()+" added.",collector.responseWithError());
             });
         }
     }

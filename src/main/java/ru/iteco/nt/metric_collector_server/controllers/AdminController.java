@@ -63,4 +63,16 @@ public class AdminController {
     private Mono<List<ApiClientResponse>> getAllApiClients(){
         return ApiCollectorService.getAllClients();
     }
+
+    @Operation(summary = "remove all validated with api data metric collectors not pass validation")
+    @RequestMapping(method = RequestMethod.DELETE,value = "/failMetricCollectorsRemove")
+    private Mono<List<DataResponse<?>>> removeFailMetricCollectors(){
+        return MetricService.removeValidationFailCollectors();
+    }
+
+    @Operation(summary = "get all validated with api data metric collectors not pass validation")
+    @GetMapping( "/failMetricCollectorsRemove")
+    private Mono<List<DataResponse<?>>> getFailMetricCollectors(){
+        return MetricService.getValidationFailCollectors();
+    }
 }

@@ -71,7 +71,7 @@ public abstract class MetricCollectorGroup<P,S extends MetricConfig,R extends Da
         return collectors.stream().map(c->c.validateAndRemove(responseMono(),data,r->{
             collectors.remove(c);
             fail.set(true);
-            return Utils.modifyData(r,j->((ObjectNode)j).set("collector",Utils.valueToTree(c.response())));
+            return Utils.modifyData(r,j->((ObjectNode)j).set("collector",Utils.valueToTree(c.responseWithError())));
         })).reduce(responseMono(),Utils::reduceResponseData).flatMap(r->fail.get() ?
                 Utils.setMessageAndData(Mono.just(r),"Removed validation fail metric collectors") :
                         Utils.setMessageAndData(Mono.just(r),"All Collectors pass validation")
@@ -92,6 +92,16 @@ public abstract class MetricCollectorGroup<P,S extends MetricConfig,R extends Da
         });
     }
 
+    public Mono<R> getValidateFail() {
+        List<DataResponse<?>> list = collectors.stream().filter(VALIDATION_FAIL).map(MetricCollector::responseWithValidationError).collect(Collectors.toList());
+        return Utils.setData(responseMono(),list);
+    }
+
+    public Mono<R> removeValidateFail(){
+        List<DataResponse<?>> list = collectors.stream().filter(VALIDATION_FAIL).peek(collectors::remove).map(MetricCollector::responseWithValidationError).collect(Collectors.toList());
+        return Utils.setData(responseMono(),list);
+    }
+
     @Override
     public boolean isValidationFail(List<JsonNode> validationResult) {
         return collectors.stream().findFirst().map(c->c.isValidationFail(validationResult)).orElse(false);
@@ -101,5 +111,35 @@ public abstract class MetricCollectorGroup<P,S extends MetricConfig,R extends Da
     public void validateDataAndSet(JsonNode data) {
         setValidationDataPass(collectors.stream().peek(c->c.validateDataAndSet(data)).anyMatch(MetricCollector::isValidateDataPass));
         setValidationData(collectors.stream().allMatch(MetricCollector::isDataValidated));
+    }
+
+    protected String getValidationMessage(){
+        String message;
+        if(getCollectors().size()==0){
+            message = "No collectors.";
+        } else {
+            long notValidated = getCollectors().stream().filter(m->!m.isDataValidated()).count();
+            int collectorSize = getCollectors().size();
+            long validateButNotPass = getCollectors().stream().filter(MetricCollector::isDataValidated).filter(m-> !m.isValidateDataPass()).count();
+            if(notValidated==collectorSize)
+                message = "Metric Collectors is not validated "+notValidated+".";
+            else {
+                if(notValidated==0){
+                    message = "All Collectors validated.";
+                } else message = notValidated+" collectors not validated.";
+                if(validateButNotPass==0)
+                    message+=" All validated collector Pass Validation";
+                else message+=" "+validateButNotPass+" fail validation";
+            }
+        }
+        return message;
+    }
+
+    @Override
+    public R responseWithError() {
+        List<DataResponse<?>> list = collectors.stream().filter(VALIDATION_FAIL).map(MetricCollector::responseWithValidationError).collect(Collectors.toList());
+        R response = response();
+        response.dataArray(list);
+        return response();
     }
 }

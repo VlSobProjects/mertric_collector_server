@@ -17,6 +17,7 @@ import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.Function;
+import java.util.function.Predicate;
 import java.util.function.UnaryOperator;
 import java.util.stream.Collectors;
 
@@ -26,6 +27,8 @@ import java.util.stream.Collectors;
 public abstract class MetricCollector<P,S extends MetricConfig,C extends MetricWriter<P,?,?,?>,T extends DataResponse<?> & ResponseWithMessage<T>> {
 
     private final static AtomicInteger ID_SOURCE = new AtomicInteger();
+
+    static final Predicate<MetricCollector<?,?,?,?>> VALIDATION_FAIL = c->c.isDataValidated() && !c.isValidateDataPass();
 
     @Getter
     private final int id;
@@ -67,10 +70,21 @@ public abstract class MetricCollector<P,S extends MetricConfig,C extends MetricW
         this.validateData.set(validationData);
     }
 
-    public abstract T response();
+    protected abstract T response();
+
+    public T responseWithError(){
+        T t = response();
+        if(validationError.get()!=null && !validationError.get().isEmpty())
+            t.dataArray(validationError.get());
+        return t;
+    }
+
+    protected DataResponse<?> responseWithValidationError(){
+        return responseWithError();
+    }
 
     public Mono<T> responseMono(){
-        return Mono.fromSupplier(this::response);
+        return Mono.fromSupplier(this::responseWithError);
     }
 
     public synchronized void stop(){
@@ -121,7 +135,7 @@ public abstract class MetricCollector<P,S extends MetricConfig,C extends MetricW
         return isRunning() ? Mono.fromRunnable(this::stop)
                 .then(getWithMessage("stopped")) : getWithMessage("already stopped");
     }
-    
+
     public <R extends DataResponse<?> & ResponseWithMessage<R>> Mono<R> validateAndSet(Mono<R> response, UnaryOperator<Mono<R>> addIfNotFail){
         return validateMono().flatMap(l->{
             if(isValidationFail(l)) return Utils.setMessageAndData(response,"Collector Filed Validation Fail",leaveOnlyAndSetErrorsData(l));
@@ -165,7 +179,7 @@ public abstract class MetricCollector<P,S extends MetricConfig,C extends MetricW
     }
 
     protected <R extends DataResponse<?> & ResponseWithMessage<R>> Mono<R> failToCheckWarn(Mono<R> response,JsonNode error){
-        return Utils.setMessageAndData(response,"Warn: Fail to check Data",Utils.getWarn(getClass().getSimpleName(),"Warn Data: data from ApiCall is null or empty or error",error,response()));
+        return Utils.setMessageAndData(response,"Warn: Fail to check Data",Utils.getWarn(getClass().getSimpleName(),"Warn Data: data from ApiCall is null or empty or error",error));
     }
 
     protected List<JsonNode> leaveOnlyAndSetErrorsData(List<JsonNode> validationResult){
