@@ -1,0 +1,266 @@
+{
+  "totalCount": 8,
+  "nextPageKey": null,
+  "result": [
+    {
+      "metricId": "builtin:tech.jvm.memory.pool.max:filter(or(eq(poolname,\"Tenured Gen\"),eq(poolname,\"Eden Space\"),eq(poolname,\"Survivor Space\"))):splitBy(\"dt.entity.process_group_instance\"):sum",
+      "data": [
+        {
+          "dimensions": [
+            "PROCESS_GROUP_INSTANCE-7A0F4E2606BFC93C"
+          ],
+          "dimensionMap": {
+            "dt.entity.process_group_instance": "PROCESS_GROUP_INSTANCE-7A0F4E2606BFC93C"
+          },
+          "timestamps": [
+            1653550260000,
+            1653550320000,
+            1653550380000,
+            1653550440000,
+            1653550500000,
+            1653550560000,
+            1653550620000,
+            1653550680000,
+            1653550740000
+          ],
+          "values": [
+            127729664,
+            127729664,
+            127729664,
+            127729664,
+            127729664,
+            127729664,
+            127729664,
+            127729664,
+            127729664
+          ]
+        },
+        {
+          "dimensions": [
+            "PROCESS_GROUP_INSTANCE-ACC04DCE415B3427"
+          ],
+          "dimensionMap": {
+            "dt.entity.process_group_instance": "PROCESS_GROUP_INSTANCE-ACC04DCE415B3427"
+          },
+          "timestamps": [
+            1653550260000,
+            1653550320000,
+            1653550380000,
+            1653550440000,
+            1653550500000,
+            1653550560000,
+            1653550620000,
+            1653550680000,
+            1653550740000
+          ],
+          "values": [
+            127729664,
+            127729664,
+            127729664,
+            127729664,
+            127729664,
+            127729664,
+            127729664,
+            127729664,
+            127729664
+          ]
+        }
+      ]
+    },
+    {
+      "metricId": "builtin:tech.jvm.memory.pool.committed:filter(or(eq(poolname,\"Tenured Gen\"),eq(poolname,\"Eden Space\"),eq(poolname,\"Survivor Space\"))):splitBy(\"dt.entity.process_group_instance\"):sum",
+      "data": [
+        {
+          "dimensions": [
+            "PROCESS_GROUP_INSTANCE-7A0F4E2606BFC93C"
+          ],
+          "dimensionMap": {
+            "dt.entity.process_group_instance": "PROCESS_GROUP_INSTANCE-7A0F4E2606BFC93C"
+          },
+          "timestamps": [
+            1653550260000,
+            1653550320000,
+            1653550380000,
+            1653550440000,
+            1653550500000,
+            1653550560000,
+            1653550620000,
+            1653550680000,
+            1653550740000
+          ],
+          "values": [
+            43450368,
+            43450368,
+            43450368,
+            43450368,
+            43450368,
+            43450368,
+            43450368,
+            43450368,
+            43450368
+          ]
+        },
+        {
+          "dimensions": [
+            "PROCESS_GROUP_INSTANCE-ACC04DCE415B3427"
+          ],
+          "dimensionMap": {
+            "dt.entity.process_group_instance": "PROCESS_GROUP_INSTANCE-ACC04DCE415B3427"
+          },
+          "timestamps": [
+            1653550260000,
+            1653550320000,
+            1653550380000,
+            1653550440000,
+            1653550500000,
+            1653550560000,
+            1653550620000,
+            1653550680000,
+            1653550740000
+          ],
+          "values": [
+            43524096,
+            43524096,
+            43524096,
+            43524096,
+            43524096,
+            43524096,
+            43524096,
+            43524096,
+            43524096
+          ]
+        }
+      ]
+    },
+    {
+      "metricId": "builtin:tech.jvm.memory.pool.used:filter(or(eq(poolname,\"Tenured Gen\"),eq(poolname,\"Eden Space\"),eq(poolname,\"Survivor Space\"))):splitBy(\"dt.entity.process_group_instance\"):sum",
+      "data": [
+        {
+          "dimensions": [
+            "PROCESS_GROUP_INSTANCE-7A0F4E2606BFC93C"
+          ],
+          "dimensionMap": {
+            "dt.entity.process_group_instance": "PROCESS_GROUP_INSTANCE-7A0F4E2606BFC93C"
+          },
+          "timestamps": [
+            1653550260000,
+            1653550320000,
+            1653550380000,
+            1653550440000,
+            1653550500000,
+            1653550560000,
+            1653550620000,
+            1653550680000,
+            1653550740000
+          ],
+          "values": [
+            2.7156405333333332E7,
+            2.8482169333333332E7,
+            21849640,
+            2.5176646666666668E7,
+            2.8516890666666664E7,
+            2.3654346666666668E7,
+            2.2887237333333332E7,
+            2.6186493333333332E7,
+            2.9553350666666664E7
+          ]
+        },
+        {
+          "dimensions": [
+            "PROCESS_GROUP_INSTANCE-ACC04DCE415B3427"
+          ],
+          "dimensionMap": {
+            "dt.entity.process_group_instance": "PROCESS_GROUP_INSTANCE-ACC04DCE415B3427"
+          },
+          "timestamps": [
+            1653550260000,
+            1653550320000,
+            1653550380000,
+            1653550440000,
+            1653550500000,
+            1653550560000,
+            1653550620000,
+            1653550680000,
+            1653550740000
+          ],
+          "values": [
+            3.7923849333333336E7,
+            3.38213184E7,
+            3.6837270666666664E7,
+            4.052457142857143E7,
+            3.1762130666666668E7,
+            3.5113133333333336E7,
+            3.8486813333333336E7,
+            37773072,
+            3.3034298666666668E7
+          ]
+        }
+      ]
+    },
+    {
+      "metricId": "builtin:tech.jvm.memory.gc.collectionTime:splitBy(\"dt.entity.process_group_instance\")",
+      "data": [
+        {
+          "dimensions": [
+            "PROCESS_GROUP_INSTANCE-7A0F4E2606BFC93C"
+          ],
+          "dimensionMap": {
+            "dt.entity.process_group_instance": "PROCESS_GROUP_INSTANCE-7A0F4E2606BFC93C"
+          },
+          "timestamps": [
+            1653550260000,
+            1653550320000,
+            1653550380000,
+            1653550440000,
+            1653550500000,
+            1653550560000,
+            1653550620000,
+            1653550680000,
+            1653550740000
+          ],
+          "values": [
+            0,
+            2,
+            0,
+            0,
+            0,
+            2,
+            0,
+            0,
+            0
+          ]
+        },
+        {
+          "dimensions": [
+            "PROCESS_GROUP_INSTANCE-ACC04DCE415B3427"
+          ],
+          "dimensionMap": {
+            "dt.entity.process_group_instance": "PROCESS_GROUP_INSTANCE-ACC04DCE415B3427"
+          },
+          "timestamps": [
+            1653550260000,
+            1653550320000,
+            1653550380000,
+            1653550440000,
+            1653550500000,
+            1653550560000,
+            1653550620000,
+            1653550680000,
+            1653550740000
+          ],
+          "values": [
+            3,
+            0,
+            0,
+            0,
+            2,
+            0,
+            0,
+            3,
+            0
+          ]
+        }
+      ]
+    }
+  ]
+}

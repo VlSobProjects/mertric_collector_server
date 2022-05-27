@@ -1,10 +1,12 @@
 package ru.iteco.nt.metric_collector_server.influx;
 
 import com.fasterxml.jackson.databind.JsonNode;
+import com.fasterxml.jackson.databind.node.ArrayNode;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.influxdb.dto.Point;
 import reactor.core.publisher.Mono;
+import ru.iteco.nt.metric_collector_server.convarters.JsonValueConverter;
 import ru.iteco.nt.metric_collector_server.influx.model.settings.InfluxField;
 import ru.iteco.nt.metric_collector_server.utils.FieldValueConvertor;
 import ru.iteco.nt.metric_collector_server.utils.Utils;
@@ -86,7 +88,7 @@ public class InfluxFieldsCollector {
     }
 
     private static Point.Builder setValueFromNode(Point.Builder builder, InfluxField field, JsonNode value){
-        Object obj = FieldValueConvertor.convert(value);
+        Object obj = convertField(field, value);
         if(obj!=null){
             if(field.isTag())
                 builder.tag(field.getName(),obj.toString());
@@ -99,6 +101,11 @@ public class InfluxFieldsCollector {
             }
         }
         return builder;
+    }
+
+    private static Object convertField(InfluxField field, JsonNode value){
+        if(field.getConverterConfig()==null) return FieldValueConvertor.convert(value);
+        return new JsonValueConverter(field.getConverterConfig()).replace(value);
     }
 
     public Mono<JsonNode> validate(){
@@ -138,7 +145,25 @@ public class InfluxFieldsCollector {
     private static boolean validatePath(JsonNode data, InfluxField field,Consumer<JsonNode> error){
         boolean is = !field.hasPath() || VALIDATE_NODE.test(data,field);
         if(!is) error.accept(Utils.getError("InfluxFieldsCollector.influxFiledDataError","Utils.validatePath fail JsonNode by field path null or empty or missing or contains only nulls",field.shortVersion(),data));
-        return is;
+        return is && validateReplaceConverter(data,field,error);
+    }
+
+    private static boolean validateReplaceConverter(JsonNode data, InfluxField field,Consumer<JsonNode> error){
+        if(data instanceof ArrayNode) {
+            return IntStream.range(0,data.size()).mapToObj(data::get).allMatch(j->validateReplaceConverter(j, field, error));
+        }
+        String source = "InfluxFieldsCollector.validateReplaceConverterError";
+        if(field.getConverterConfig()==null) return true;
+        if(!field.hasPath()) {
+            error.accept(Utils.getError(source,"ConverterConfig not null but filed has no path",field));
+            return false;
+        }
+        JsonNode node = Utils.getFromJsonNode(data, field.getPath());
+        if(new JsonValueConverter(field.getConverterConfig()).validate(node)) return true;
+        else {
+            error.accept(Utils.getError(source,"JsonValueConverter exist but fail validation",field,data));
+            return false;
+        }
     }
 
     private static void dataValidateAndCount(JsonNode data, InfluxField field, AtomicInteger count, Consumer<JsonNode> error){

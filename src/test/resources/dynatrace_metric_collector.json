@@ -1,0 +1,45 @@
+{
+  "measurement": "dynatrace",
+  "path": "/result",
+  "fields" : [
+    {
+      "path": "/metricId",
+      "name": "metric",
+      "tag": true,
+      "converterConfig": {
+        "compareOperation": "contain",
+        "replaceMap": {
+          "jvm.memory.pool.max": "hipMax",
+          "jvm.memory.pool.committed": "hipCommitted",
+          "jvm.memory.pool.used": "hipUsed",
+          "jvm.memory.gc.collectionTime": "gcTime"
+        }
+      }
+    },
+    {
+      "path": "/data",
+      "children": [
+        {
+          "path": "/dimensionMap/dt.entity.process_group_instance",
+          "tag": true,
+          "name": "container",
+          "converterConfig": {
+            "compareOperation": "eq",
+            "replaceMap": {
+              "PROCESS_GROUP_INSTANCE-7A0F4E2606BFC93C": "container1",
+              "PROCESS_GROUP_INSTANCE-ACC04DCE415B3427": "container2"
+            }
+          }
+        },
+        {
+          "path": "/timestamps",
+          "time": true
+        },
+        {
+          "path": "/values",
+          "name": "value"
+        }
+      ]
+    }
+  ]
+}

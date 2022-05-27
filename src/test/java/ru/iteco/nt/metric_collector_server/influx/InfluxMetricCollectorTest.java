@@ -2,9 +2,13 @@ package ru.iteco.nt.metric_collector_server.influx;
 
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.JsonNode;
+import com.fasterxml.jackson.databind.MapperFeature;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import lombok.SneakyThrows;
 import org.influxdb.dto.Point;
 import org.junit.jupiter.api.Test;
+import org.springframework.core.io.ClassPathResource;
+import org.springframework.core.io.Resource;
 import reactor.core.Disposable;
 import reactor.core.publisher.Flux;
 import ru.iteco.nt.metric_collector_server.influx.model.settings.InfluxToFileConnectorConfig;
@@ -12,6 +16,7 @@ import ru.iteco.nt.metric_collector_server.utils.Utils;
 import ru.iteco.nt.metric_collector_server.influx.model.settings.InfluxField;
 import ru.iteco.nt.metric_collector_server.influx.model.settings.InfluxMetricCollectorConfig;
 
+import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Paths;
 import java.time.Instant;
@@ -174,7 +179,32 @@ class InfluxMetricCollectorTest {
         InfluxToFileConnectorConfig config = Utils.getFromJsonNode(Utils.stringToTree(jsonConfig),InfluxToFileConnectorConfig.class);
         System.out.println(config);
     }
+
+    @Test
+    void dynatraceTest() throws IOException {
+        ObjectMapper objectMapper = new ObjectMapper();
+        objectMapper.enable(MapperFeature.ACCEPT_CASE_INSENSITIVE_ENUMS);
+        Resource resource = new ClassPathResource("dynatrace_metric.json");
+        JsonNode metric = objectMapper.readTree(resource.getInputStream());
+        Resource resource2 = new ClassPathResource("dynatrace_metric_collector.json");
+        InfluxMetricCollectorConfig collectorConfig = objectMapper.readValue(resource2.getInputStream(),InfluxMetricCollectorConfig.class);
+        assertNotNull(metric);
+        assertNotNull(collectorConfig);
+        InfluxToFileConnectorConfig connectorConfig = new InfluxToFileConnectorConfig();
+        connectorConfig.setFilePath("test_result");
+        connectorConfig.setFileName("influx_data_points.txt");
+        connectorConfig.setDateTimeFormat("yyyyxs-MM-dd");
+        connectorConfig.setAddDateTime(true);
+        connectorConfig.setPeriodSeconds(5);
+        InfluxToFileConnector connector = new InfluxToFileConnector(connectorConfig);
+        InfluxMetricCollector metricCollector = new InfluxMetricCollector(collectorConfig,connector);
+        metricCollector.validateData(metric).forEach(System.out::println);
+        List<Point> list = metricCollector.getPointFromData(metric);
+        connector.writeData(list);
+    }
 }
+
+
 
 /*
 {

@@ -18,7 +18,7 @@ import java.util.stream.Collectors;
 @Setter
 @Getter
 @EqualsAndHashCode(onlyExplicitlyIncluded = true,callSuper = false)
-public class InfluxMetricCollectorConfig extends MetricConfig {
+public class InfluxMetricCollectorConfig extends MetricConfig implements HasJsonPath {
 
     @EqualsAndHashCode.Include
     private Set<InfluxField> fields;
@@ -43,5 +43,6 @@ public class InfluxMetricCollectorConfig extends MetricConfig {
     private boolean isNoFields(){
         return fields==null || fields.size()==0;
     }
+
 
 }

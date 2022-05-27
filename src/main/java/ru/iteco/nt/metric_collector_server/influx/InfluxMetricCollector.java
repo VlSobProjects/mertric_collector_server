@@ -2,6 +2,8 @@ package ru.iteco.nt.metric_collector_server.influx;
 
 import com.fasterxml.jackson.databind.JsonNode;
 
+import com.fasterxml.jackson.databind.node.ArrayNode;
+import com.fasterxml.jackson.databind.node.ObjectNode;
 import lombok.extern.slf4j.Slf4j;
 import org.influxdb.dto.Point;
 import reactor.core.publisher.Flux;
@@ -56,6 +58,19 @@ public class InfluxMetricCollector extends MetricCollector<
     }
 
     public void addPointFromData(JsonNode data,List<Point> list,Instant time){
+        JsonNode source = getConfig().hasPath() ? Utils.getFromJsonNode(data,getConfig().getPath()) : data;
+        addPointFromJsonNode(source,list,time);
+    }
+
+    private void addPointFromJsonNode(JsonNode source,List<Point> list,Instant time){
+        if(source instanceof ObjectNode)
+            addPointFromDataObject((ObjectNode) source,list,time);
+        else if(source instanceof ArrayNode)
+            source.forEach(j->addPointFromJsonNode(j,list,time));
+        else log.error("collector source is not Object: {}",source);
+    }
+
+    private void addPointFromDataObject(ObjectNode data,List<Point> list,Instant time){
         Supplier<Point.Builder> builderSupplier = getConfig().isSetTime()?
                 ()->Point.measurement(getConfig().getMeasurement()).time(time.toEpochMilli(),TimeUnit.MILLISECONDS) :
                 ()->Point.measurement(getConfig().getMeasurement());
@@ -82,12 +97,21 @@ public class InfluxMetricCollector extends MetricCollector<
     }
 
     public List<JsonNode> validateData(JsonNode data){
-        return getConfig()
-                .getFields()
-                .stream()
-                .map(InfluxFieldsCollector::new)
-                .map(c->c.validateData(data))
-                .collect(Collectors.toList());
+        return validateDataSource(getConfig().hasPath() ? Utils.getFromJsonNode(data,getConfig().getPath()) : data,new ArrayList<>());
+    }
+
+    private List<JsonNode> validateDataSource(JsonNode data,List<JsonNode> result){
+        if(data instanceof ArrayNode){
+            data.forEach(j->validateDataSource(j, result));
+        } else result.addAll(
+                getConfig()
+                        .getFields()
+                        .stream()
+                        .map(InfluxFieldsCollector::new)
+                        .map(c->c.validateData(data))
+                        .collect(Collectors.toList())
+        );
+        return result;
     }
 
 

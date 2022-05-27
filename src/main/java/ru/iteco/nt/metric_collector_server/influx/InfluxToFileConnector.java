@@ -13,6 +13,7 @@ import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.nio.file.StandardOpenOption;
 import java.time.LocalDateTime;
+import java.time.format.DateTimeFormatter;
 import java.util.Collection;
 import java.util.List;
 import java.util.stream.Collectors;
@@ -21,6 +22,7 @@ import java.util.stream.Collectors;
 public class InfluxToFileConnector extends MetricWriter<Point, InfluxToFileConnectorConfig, InfluxToFileConnectorResponse,InfluxToFileConnectorResponse.InfluxToFileConnectorResponseBuilder<InfluxToFileConnectorResponse,?>> {
 
     private final Path filePath;
+    private final static DateTimeFormatter DEF_FORMATTER = DateTimeFormatter.ofPattern("yyyy-MM-dd (HH-mm-ss)");
 
     public InfluxToFileConnector(InfluxToFileConnectorConfig config) {
         super(config);
@@ -28,7 +30,7 @@ public class InfluxToFileConnector extends MetricWriter<Point, InfluxToFileConne
             try {
                 Path p = Paths.get(config.getFilePath());
                 file = Files.isDirectory(p) && Files.isDirectory(p) && Files.isWritable(p) ?
-                        p.resolve("influx_points.txt") : null;
+                        p.resolve(getFileName()) : null;
                 if(file!=null){
                     Files.deleteIfExists(file);
                     Files.createFile(file);
@@ -38,6 +40,21 @@ public class InfluxToFileConnector extends MetricWriter<Point, InfluxToFileConne
             }
 
         filePath = file;
+    }
+
+    private String getFileName(){
+        String fileName = getConfig().getFileName();
+        if(getConfig().isAddDateTime()){
+            LocalDateTime time = LocalDateTime.now();
+            if(getConfig().getDateTimeFormat()!=null && !getConfig().getDateTimeFormat().trim().isEmpty()){
+                try {
+                    return time.format(DateTimeFormatter.ofPattern(getConfig().getDateTimeFormat()))+"_"+fileName;
+                } catch (Exception e){
+                    log.error("DateTimeFormat error: {}",getConfig().getDateTimeFormat(),e);
+                }
+            }
+            return DEF_FORMATTER.format(time)+"_"+fileName;
+        } else return fileName;
     }
 
     @SuppressWarnings("unchecked")
