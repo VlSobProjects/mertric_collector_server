@@ -82,6 +82,9 @@ public abstract class MetricWriter<T,S extends WriterConfig,R extends WriterResp
         if(isWriting())
             writing.dispose();
         writing = null;
+        List<T> list = new ArrayList<>();
+        pointQueue.drainTo(list);
+        writeData(list);
     }
 
     public R response(){

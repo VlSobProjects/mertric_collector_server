@@ -474,5 +474,9 @@ public class Utils {
         } else return false;
     }
 
+    public Stream<JsonNode> getStreamFromJson(JsonNode node){
+        return IntStream.range(0,node.size()).mapToObj(node::get);
+    }
+
 
 }

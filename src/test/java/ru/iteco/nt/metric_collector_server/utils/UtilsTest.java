@@ -2,9 +2,14 @@ package ru.iteco.nt.metric_collector_server.utils;
 
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.JsonNode;
+import com.fasterxml.jackson.databind.MapperFeature;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import org.influxdb.dto.Point;
 import org.junit.jupiter.api.Test;
+import org.springframework.core.io.ClassPathResource;
+import org.springframework.core.io.Resource;
 
+import java.io.IOException;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
@@ -33,5 +38,15 @@ class UtilsTest {
                 .addField("sum",100)
                 .tag("system","testSystem").build();
         System.out.println(Utils.getInfluxPointTime(point));
+    }
+
+    @Test
+    void fiendValues() throws IOException {
+        ObjectMapper objectMapper = new ObjectMapper();
+        objectMapper.enable(MapperFeature.ACCEPT_CASE_INSENSITIVE_ENUMS);
+        Resource resource = new ClassPathResource("dynatrace_metric.json");
+        JsonNode metric = objectMapper.readTree(resource.getInputStream());
+
+        metric.findValues("timestamps").forEach(j->System.out.println(j.toPrettyString()));
     }
 }

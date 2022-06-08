@@ -16,6 +16,7 @@ import java.util.Comparator;
 public abstract class DataCollector<R extends DataResponse<S>,S,B extends DataResponse.DataResponseBuilder<S,R,?>> extends ApiHolder<R,S,B> {
 
     private JsonNode data;
+    private JsonNode lastGood;
     private long time;
     private boolean fail;
     @Setter(AccessLevel.PROTECTED)
@@ -31,6 +32,9 @@ public abstract class DataCollector<R extends DataResponse<S>,S,B extends DataRe
     public synchronized void setData(JsonNode jsonNode){
         boolean lasFail = fail;
         fail = jsonNode.has("error");
+        if(!fail){
+            lastGood = jsonNode;
+        }
         time = System.currentTimeMillis();
         if(!lasFail || !fail || !Utils.isSameError(data, jsonNode)){
             data = jsonNode;

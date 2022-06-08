@@ -15,6 +15,7 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicInteger;
+import java.util.function.Function;
 
 public class FluxTest {
 
@@ -80,6 +81,21 @@ public class FluxTest {
 
     }
 
+    @Test
+    void testFLUX3() throws InterruptedException {
+        Disposable d1 = getMono().delayElement(Duration.ofSeconds(2)).repeat().subscribe(c->System.out.println("Test1 - "+c));
+        Disposable d2 = Mono.fromSupplier(this::getMono).flatMap(Function.identity()).delayElement(Duration.ofSeconds(2)).repeat().subscribe(c->System.out.println("Test2 - "+c));
+
+        TimeUnit.SECONDS.sleep(10);
+        d1.dispose();
+        d2.dispose();
+
+    }
+
+    private Mono<String> getMono(){
+        String str = "testString_"+System.currentTimeMillis();
+        return Mono.fromSupplier(()->str);
+    }
 
     private static class Collector {
         private final Flux<String> collector;

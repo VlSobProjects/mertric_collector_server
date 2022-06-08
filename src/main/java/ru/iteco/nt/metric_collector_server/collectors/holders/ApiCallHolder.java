@@ -1,20 +1,31 @@
 package ru.iteco.nt.metric_collector_server.collectors.holders;
 
 import com.fasterxml.jackson.databind.JsonNode;
+
 import lombok.Getter;
+
 
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.web.reactive.function.client.WebClient;
 import reactor.core.Disposable;
 import reactor.core.publisher.Mono;
 import reactor.util.retry.Retry;
+
+import ru.iteco.nt.metric_collector_server.SpringContext;
 import ru.iteco.nt.metric_collector_server.collectors.model.settings.ApiCallConfig;
 import ru.iteco.nt.metric_collector_server.collectors.model.responses.ApiCallResponse;
 import ru.iteco.nt.metric_collector_server.collectors.model.settings.ApiCollectorConfig;
+
 import ru.iteco.nt.metric_collector_server.utils.Utils;
 
 import java.time.Duration;
+
+import java.util.ArrayList;
+import java.util.List;
 import java.util.concurrent.atomic.AtomicInteger;
+import java.util.function.Consumer;
+import java.util.function.Function;
+
 
 @Slf4j
 @Getter
@@ -24,9 +35,10 @@ public class ApiCallHolder extends DataCollector<ApiCallResponse, ApiCallConfig,
     private final Mono<JsonNode> request;
     private Disposable checkApiCall;
 
+
     public ApiCallHolder(ApiClientHolder apiClientHolder, ApiCallConfig apiCallConfig){
         super(apiCallConfig,isSource.incrementAndGet());
-        request = getRequest(apiClientHolder).doOnNext(this::setData);
+        request = Mono.fromSupplier(()->getRequest(apiClientHolder)).flatMap(Function.identity()).doOnNext(this::setData);
         setDoOnError(Utils.runWithErrorLog(()->{
             log.debug("Do on Error data: {}",getData().getData());
             if(collectorHolder!=null && collectorHolder.isCollecting()){
@@ -54,8 +66,10 @@ public class ApiCallHolder extends DataCollector<ApiCallResponse, ApiCallConfig,
 
     private Mono<JsonNode> getRequest(ApiClientHolder apiClientHolder){
         if(!getSettings().getMethod().trim().equalsIgnoreCase("get"))
-            return Mono.just(Utils.getError("ApiCallHolder",String.format("Method: %s not implemented", getSettings().getMethod()),getSettings()));
-        WebClient.ResponseSpec response = apiClientHolder.getWebClient().get().uri(getSettings().getUri()).retrieve();
+            return Mono.just(Utils.getError("ApiCallHolder.getRequest",String.format("Method: %s not implemented", getSettings().getMethod()),getSettings()));
+        List<JsonNode> errors = new ArrayList<>();
+        WebClient.ResponseSpec response = apiClientHolder.getWebClient().get().uri(getUri(errors::add)).retrieve();
+        if(errors.size()>0) return Mono.just(Utils.getError("ApiCallHolder.getRequest","fail to create dynamic timestamp request param",getSettings(),errors));
         if(getSettings().isRetrySet()){
             return getSettings().isRetryBackoff() ?
                    Utils.getWithOnHttpErrorResponseSpec(getSettings().getApiCallInfo(),response,Retry.backoff(
@@ -67,6 +81,12 @@ public class ApiCallHolder extends DataCollector<ApiCallResponse, ApiCallConfig,
                                     ,Duration.ofSeconds(getSettings().getRetryPeriod()))
                             .transientErrors(getSettings().isRetryTransient()));
         } else return Utils.getWithOnHttpErrorResponseSpec(getSettings().getApiCallInfo(),response);
+    }
+
+    private String getUri(Consumer<JsonNode> onError){
+       if(getSettings().getTimeMillisParamConfigs()==null || getSettings().getTimeMillisParamConfigs().isEmpty())
+           return getSettings().getUri();
+       return SpringContext.getBean(DynamicTimeMillisParamConverter.class).uriWithParams(getSettings().getTimeMillisParamConfigs(),getSettings().getUri(),getLastGood(),onError);
     }
 
     private Disposable setCheckApiCall(long seconds,Mono<JsonNode> request){

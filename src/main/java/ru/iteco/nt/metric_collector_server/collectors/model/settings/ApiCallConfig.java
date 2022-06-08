@@ -6,6 +6,8 @@ import lombok.Builder;
 import lombok.Data;
 import lombok.EqualsAndHashCode;
 
+import java.util.List;
+
 @Builder
 @Data
 @EqualsAndHashCode(onlyExplicitlyIncluded = true)
@@ -24,6 +26,7 @@ public class ApiCallConfig {
     private boolean retryBackoff;
     private long checkPeriod;
     private boolean retryTransient;
+    private List<DynamicTimeMillisParamConfig> timeMillisParamConfigs;
 
     public String getApiCallInfo(){
         return String.format("[%s] %s %s clientId - %s",name,method,uri,clientId);

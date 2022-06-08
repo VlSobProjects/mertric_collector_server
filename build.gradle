@@ -1,6 +1,11 @@
+import de.qualersoft.jmeter.gradleplugin.task.*
+
 buildscript {
     repositories {
 		mavenCentral()
+        maven {
+            url "https://plugins.gradle.org/m2/"
+        }
 //        maven {
 //            url = "http://sbtnexus.delta.sbrf.ru:8081/nexus/content/groups/public"
 //            allowInsecureProtocol = true
@@ -16,6 +21,7 @@ buildscript {
     }
     dependencies {
         classpath("org.springframework.boot:spring-boot-gradle-plugin:2.4.2")
+        classpath "de.qualersoft:jmeter-gradle-plugin:2.2.2"
     }
 }
 
@@ -24,6 +30,7 @@ apply plugin: 'war'
 apply plugin: 'maven-publish'
 apply plugin: 'org.springframework.boot'
 apply plugin: 'io.spring.dependency-management'
+apply plugin: "de.qualersoft.jmeter"
 
 group 'ru.iteco'
 version '1.0-SNAPSHOT'
@@ -33,6 +40,18 @@ compileJava.options.encoding = 'UTF-8'
 tasks.withType(JavaCompile) {
     options.encoding = 'UTF-8'
 }
+
+tasks.register("runJmeterStub",JMeterRunTask){
+    doFirst{
+        bootRun
+    }
+    jmxFile.set("test_metric_collector_service.jmx")
+}
+
+tasks.register("runJmeterStubReport",JMeterReportTask){
+    jmxFile.set("test_metric_collector_service.jmx")
+}
+
 
 configurations {
     compileOnly {
@@ -66,6 +85,7 @@ dependencies {
     implementation 'org.influxdb:influxdb-java:2.22'
     implementation 'org.springframework.boot:spring-boot-starter-webflux'
     implementation 'org.springframework.boot:spring-boot-starter-actuator'
+    implementation 'org.springframework.boot:spring-boot-starter-aop'
     compileOnly 'org.projectlombok:lombok'
     testCompileOnly 'org.projectlombok:lombok'
 
