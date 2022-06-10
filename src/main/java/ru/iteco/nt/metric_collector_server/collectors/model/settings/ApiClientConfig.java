@@ -7,6 +7,7 @@ import io.netty.handler.ssl.util.InsecureTrustManagerFactory;
 import io.netty.handler.timeout.ReadTimeoutHandler;
 import io.netty.handler.timeout.WriteTimeoutHandler;
 import lombok.*;
+import org.springframework.http.client.reactive.ReactorClientHttpConnector;
 import org.springframework.web.reactive.function.client.WebClient;
 import reactor.netty.http.client.HttpClient;
 
@@ -41,17 +42,18 @@ public class ApiClientConfig {
     public WebClient getClient(WebClient.Builder builder){
         HttpClient httpClient = HttpClient.create();
         if(https){
-            httpClient.secure(t->t.sslContext(getSslContext()));
+            httpClient = httpClient.secure(t->t.sslContext(getSslContext()));
         } else httpClient.noSSL();
         if(connectionTimeout>0){
-            httpClient.option(ChannelOption.CONNECT_TIMEOUT_MILLIS,connectionTimeout);
+            httpClient = httpClient.option(ChannelOption.CONNECT_TIMEOUT_MILLIS,connectionTimeout);
         }
         if(wrightReadTimeout>0){
-            httpClient.doOnConnected(connection -> {
+            httpClient = httpClient.doOnConnected(connection -> {
                 connection.addHandlerLast(new ReadTimeoutHandler(wrightReadTimeout));
                 connection.addHandlerLast(new WriteTimeoutHandler(wrightReadTimeout));
             });
         }
+        builder.clientConnector(new ReactorClientHttpConnector(httpClient));
         if(maxInMemorySize>0){
             builder.codecs(clientCodecConfigurer -> clientCodecConfigurer.defaultCodecs().maxInMemorySize(maxInMemorySize));
         }
