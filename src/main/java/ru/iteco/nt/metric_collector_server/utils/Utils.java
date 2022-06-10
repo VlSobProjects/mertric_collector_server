@@ -5,6 +5,7 @@ import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.node.ArrayNode;
+import com.fasterxml.jackson.databind.node.NullNode;
 import com.fasterxml.jackson.databind.node.ObjectNode;
 import lombok.Getter;
 import lombok.Setter;
@@ -476,6 +477,26 @@ public class Utils {
 
     public Stream<JsonNode> getStreamFromJson(JsonNode node){
         return IntStream.range(0,node.size()).mapToObj(node::get);
+    }
+
+    public void clearNulls(ArrayNode values,ArrayNode time){
+        setArrEqualsSize(values,time);
+        IntStream.range(0,values.size())
+                .filter(i->values.get(i) instanceof NullNode)
+                .findFirst().ifPresent(i->{
+                    values.remove(i);
+                    time.remove(i);
+                });
+        if(Utils.getStreamFromJson(values).anyMatch(j->j instanceof NullNode))
+            clearNulls(values,time);
+    }
+
+    private void setArrEqualsSize(ArrayNode arr1,ArrayNode arr2){
+        if(arr1.size()==arr2.size()) return;
+        ArrayNode b  = arr1.size()>arr2.size() ?arr1:arr2;
+        while (arr1.size()!=arr2.size()){
+            b.remove(b.size()-1);
+        }
     }
 
 

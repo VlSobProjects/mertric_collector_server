@@ -2,6 +2,7 @@ package ru.iteco.nt.metric_collector_server.collectors.holders;
 
 import com.fasterxml.jackson.databind.JsonNode;
 
+import com.fasterxml.jackson.databind.node.ArrayNode;
 import lombok.Getter;
 
 
@@ -16,6 +17,7 @@ import ru.iteco.nt.metric_collector_server.collectors.model.settings.ApiCallConf
 import ru.iteco.nt.metric_collector_server.collectors.model.responses.ApiCallResponse;
 import ru.iteco.nt.metric_collector_server.collectors.model.settings.ApiCollectorConfig;
 
+import ru.iteco.nt.metric_collector_server.collectors.model.settings.TimeValueConfig;
 import ru.iteco.nt.metric_collector_server.utils.Utils;
 
 import java.time.Duration;
@@ -38,7 +40,7 @@ public class ApiCallHolder extends DataCollector<ApiCallResponse, ApiCallConfig,
 
     public ApiCallHolder(ApiClientHolder apiClientHolder, ApiCallConfig apiCallConfig){
         super(apiCallConfig,isSource.incrementAndGet());
-        request = Mono.fromSupplier(()->getRequest(apiClientHolder)).flatMap(Function.identity()).doOnNext(this::setData);
+        request = Mono.fromSupplier(()->getRequest(apiClientHolder)).flatMap(Function.identity()).doOnNext(this::clearNullValue).doOnNext(this::setData);
         setDoOnError(Utils.runWithErrorLog(()->{
             log.debug("Do on Error data: {}",getData().getData());
             if(collectorHolder!=null && collectorHolder.isCollecting()){
@@ -168,6 +170,21 @@ public class ApiCallHolder extends DataCollector<ApiCallResponse, ApiCallConfig,
             checkApiCall.dispose();
             checkApiCall = null;
         }
+    }
+
+    private void clearNullValue(JsonNode source){
+        if(getSettings().getTimeValueConfig()==null) return;
+        TimeValueConfig timeValueConfig = new TimeValueConfig();
+        List<JsonNode> values = source.findValues(timeValueConfig.getValueKey());
+        List<JsonNode> timestamps = source.findValues(timeValueConfig.getTimeKey());
+        for (int i = 0; i < values.size(); i++) {
+            JsonNode v = values.get(i);
+            JsonNode t = timestamps.get(i);
+            if(v instanceof ArrayNode && t instanceof ArrayNode){
+                Utils.clearNulls((ArrayNode)v,(ArrayNode)t);
+            }
+        }
+
     }
 
 }

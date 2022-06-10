@@ -27,6 +27,7 @@ public class ApiCallConfig {
     private long checkPeriod;
     private boolean retryTransient;
     private List<DynamicTimeMillisParamConfig> timeMillisParamConfigs;
+    private TimeValueConfig timeValueConfig;
 
     public String getApiCallInfo(){
         return String.format("[%s] %s %s clientId - %s",name,method,uri,clientId);
