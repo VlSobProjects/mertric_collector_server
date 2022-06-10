@@ -12,7 +12,9 @@ import ru.iteco.nt.metric_collector_server.utils.Utils;
 
 import java.time.Instant;
 import java.util.ArrayList;
+import java.util.HashSet;
 import java.util.List;
+import java.util.Set;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicReference;
@@ -27,6 +29,8 @@ import java.util.stream.Collectors;
 public abstract class MetricCollector<P,S extends MetricConfig,C extends MetricWriter<P,?,?,?>,T extends DataResponse<?> & ResponseWithMessage<T>> {
 
     private final static AtomicInteger ID_SOURCE = new AtomicInteger();
+
+    private final Set<P> lastSet = new HashSet<>();
 
     static final Predicate<MetricCollector<?,?,?,?>> VALIDATION_FAIL = c->c.isDataValidated() && !c.isValidateDataPass();
 
@@ -115,7 +119,9 @@ public abstract class MetricCollector<P,S extends MetricConfig,C extends MetricW
             Instant time = Instant.now();
             addPointFromData(data,list,time);
             log.debug("Get data: {} list size:{}",data,list.size());
-            dbConnector.addPoints(list);
+            dbConnector.addPoints(list.stream().filter(p->!lastSet.contains(p)).collect(Collectors.toList()));
+            lastSet.clear();
+            lastSet.addAll(list);
         });
     }
 

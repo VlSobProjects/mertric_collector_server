@@ -173,8 +173,8 @@ public class ApiCallHolder extends DataCollector<ApiCallResponse, ApiCallConfig,
     }
 
     private void clearNullValue(JsonNode source){
-        if(getSettings().getTimeValueConfig()==null) return;
-        TimeValueConfig timeValueConfig = new TimeValueConfig();
+        if(getSettings().getTimeValueConfig()==null || source==null) return;
+        TimeValueConfig timeValueConfig = getSettings().getTimeValueConfig();
         List<JsonNode> values = source.findValues(timeValueConfig.getValueKey());
         List<JsonNode> timestamps = source.findValues(timeValueConfig.getTimeKey());
         for (int i = 0; i < values.size(); i++) {
